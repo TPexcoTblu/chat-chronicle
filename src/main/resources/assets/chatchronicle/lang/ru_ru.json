@@ -145,5 +145,9 @@
   "error.regex": "Некорректное или неподдерживаемое регулярное выражение. Проверьте флажок Regex и подсказку.",
   "settings.validateTimePattern": "Некорректный формат времени. Пример: HH:mm:ss.",
   "session.you": "Вы",
-  "error.detail": "Ошибка: %s"
+  "error.detail": "Ошибка: %s",
+  "settings.counterColor": "Цвет счётчика повторов",
+  "settings.counterColorHelp": "Введите RGB-цвет в формате #RRGGBB или нажмите на образец для выбора готового цвета. По умолчанию: #AAAAAA.",
+  "settings.counterColorPreview": "Следующий цвет / образец:",
+  "settings.validateCounterColor": "Цвет: 6 hex-цифр, например #FFAA00."
 }

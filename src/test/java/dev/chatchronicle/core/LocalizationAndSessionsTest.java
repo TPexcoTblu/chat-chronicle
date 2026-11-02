@@ -50,6 +50,24 @@ class LocalizationAndSessionsTest {
         Messages.setLanguage("ru_ru"); assertEquals("Настройки", Messages.text("nav.settings"));
         assertSame(Messages.catalog("en_us"), Messages.catalog("invalid"));
     }
+    @Test void counterColorPersistsAndLegacyOrInvalidSettingsKeepTheDefault() throws Exception {
+        Path path = root.resolve("config.json");
+        var config = new ChronicleConfig(); config.duplicateCounterColor = 0x12ABEF;
+        config.save(path);
+        assertEquals(0x12ABEF, ChronicleConfig.load(path).duplicateCounterColor);
+        Files.writeString(path, "{\"chatHudWidth\":480}");
+        assertEquals(0xAAAAAA, ChronicleConfig.load(path).duplicateCounterColor);
+        for (int invalid : new int[]{-1, 0x1000000}) {
+            Files.writeString(path, "{\"duplicateCounterColor\":" + invalid + ",\"chatHudWidth\":480}");
+            var restored = ChronicleConfig.load(path);
+            assertEquals(0xAAAAAA, restored.duplicateCounterColor);
+            assertEquals(480, restored.chatHudWidth);
+        }
+        for (int valid : new int[]{0, 0xFFFFFF}) {
+            config.duplicateCounterColor = valid; config.save(path);
+            assertEquals(valid, ChronicleConfig.load(path).duplicateCounterColor);
+        }
+    }
     @Test void archiveStatusAndStoredMarkersFollowTheCurrentLanguageWithoutChangingRecords() {
         UiMessage status = new UiMessage("archive.skipped", 3);
         ChatRecord marker = SessionMarkers.create(false, "Alex", "Example server", 1793610000000L);

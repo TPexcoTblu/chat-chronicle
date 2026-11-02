@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.3 · Fabric · Client-side · English and Russian**
 
-Current version: **0.1.0-alpha.8**
+Current version: **0.1.0-alpha.9**
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -29,7 +29,7 @@ Clickable message components use Minecraft's native chat actions, including serv
 
 1. Use **Minecraft Java 26.3**, **Java 25**, and **Fabric Loader 0.20.1 or newer**.
 2. Install **Fabric API for Minecraft 26.3**. The tested version is **0.165.0+26.3**.
-3. Place `chat-chronicle-0.1.0-alpha.8.jar` in the game profile's `mods` folder.
+3. Place `chat-chronicle-0.1.0-alpha.9.jar` in the game profile's `mods` folder.
 4. Open chat and choose **History / Search** or **Settings**.
 
 Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
@@ -55,6 +55,8 @@ The two right-click shortcuts can be disabled in settings.
 A selected collapsed group includes the original repeats present when it was selected. Later arrivals are excluded from deletion. Copying uses one entry per selected visible row, ordered from oldest to newest; **As displayed** includes timestamps and counters. Open context to select individual repeats.
 
 ## Settings and storage
+
+Choose the duplicate-counter color in settings: enter `#RRGGBB` or click the colored preview to cycle nine presets. The default is gray (`#AAAAAA`). Save to apply it to the HUD and history; original message colors stay intact.
 
 HUD dimensions accept **20–8192 GUI pixels**; `0` follows the corresponding vanilla setting. Dimensions fit the available window area. Minecraft's text scale, opacity, and line spacing remain in use.
 
@@ -107,7 +109,7 @@ On Linux or macOS:
 ./gradlew runClient
 ```
 
-The installable JAR is written to `build/libs/chat-chronicle-0.1.0-alpha.8.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+The installable JAR is written to `build/libs/chat-chronicle-0.1.0-alpha.9.jar`. The `-sources.jar` file contains source code and is not the mod to install.
 
 Pinned versions: Minecraft **26.3**, Loader **0.20.1**, Fabric API **0.165.0+26.3**, Loom **1.19.3**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**.
 

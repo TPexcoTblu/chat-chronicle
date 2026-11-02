@@ -151,7 +151,7 @@ public final class MessageView {
             if (searchMode) component.append(Component.literal(record.day() + " ").withStyle(net.minecraft.ChatFormatting.GRAY));
             if (mod.config.showTimestamps) component.append(Component.literal("[" + formatter.format(Instant.ofEpochMilli(record.time())) + "] ").withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
             component.append(ChatChronicle.decode(record));
-            if (count > 1) component.append(Component.literal(" ×" + count).withStyle(net.minecraft.ChatFormatting.GRAY));
+            if (count > 1) component.append(Component.literal(" ×" + count).withStyle(Style.EMPTY.withColor(mod.config.duplicateCounterColor)));
             var wrapped = font.split(component, Math.max(20, (int) (width / scale) - 10));
             for (int j = wrapped.size() - 1; j >= 0; j--) lines.add(new Line(row, wrapped.get(j), count, j == 0));
         }

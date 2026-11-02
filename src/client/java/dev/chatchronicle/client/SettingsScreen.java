@@ -14,7 +14,9 @@ import java.time.format.DateTimeFormatter;
 public final class SettingsScreen extends Screen {
     private final Screen parent;
     private EditBox interval, pattern, reply, cache, page, days, maximum, hudWidth, hudOpenHeight, hudClosedHeight;
-    private EditBox appear, idle, fade;
+    private EditBox appear, idle, fade, counterColor;
+    private Button counterPreview;
+    private static final int[] COUNTER_COLORS = {0xAAAAAA, 0xFFFFFF, 0xFFFF55, 0xFFAA00, 0xFF5555, 0x55FF55, 0x55FFFF, 0x5555FF, 0xFF55FF};
     private final java.util.Map<EditBox, String> fieldLabels = new java.util.LinkedHashMap<>();
     private String error = "";
     private int scroll;
@@ -56,8 +58,19 @@ public final class SettingsScreen extends Screen {
         idle = field(Messages.text("settings.idle"), x, y + 464, Integer.toString(c.chatIdleSeconds));
         fade = field(Messages.text("settings.fade"), x, y + 492, Integer.toString(c.chatFadeMillis));
         check(Messages.text("settings.markers"), x, y + 520, c.showSessionMarkers, v -> c.showSessionMarkers = v);
-        var compact = addRenderableWidget(Button.builder(Component.literal(Messages.text("settings.compactFiles")), b -> compact()).bounds(x, y + 548, 300, 20).build());
-        content.add(compact); positions.add(y + 548);
+        counterColor = field(Messages.text("settings.counterColor"), x, y + 548, String.format("#%06X", c.duplicateCounterColor));
+        counterColor.setTooltip(Tooltip.create(Component.literal(Messages.text("settings.counterColorHelp"))));
+        counterPreview = addRenderableWidget(Button.builder(Component.empty(), b -> {
+            int current;
+            try { current = parseCounterColor(); } catch (IllegalArgumentException ex) { current = c.duplicateCounterColor; }
+            int next = 0;
+            for (int i = 0; i < COUNTER_COLORS.length; i++) if (COUNTER_COLORS[i] == current) { next = (i + 1) % COUNTER_COLORS.length; break; }
+            counterColor.setValue(String.format("#%06X", COUNTER_COLORS[next]));
+        }).bounds(x, y + 576, 300, 20).build());
+        content.add(counterPreview); positions.add(y + 576);
+        counterColor.setResponder(value -> updateCounterPreview()); updateCounterPreview();
+        var compact = addRenderableWidget(Button.builder(Component.literal(Messages.text("settings.compactFiles")), b -> compact()).bounds(x, y + 604, 300, 20).build());
+        content.add(compact); positions.add(y + 604);
         saveButton = addRenderableWidget(Button.builder(Component.literal(Messages.text("nav.save")), b -> save()).bounds(x, height - 27, 145, 20).build());
         backButton = addRenderableWidget(Button.builder(Component.literal(Messages.text("nav.back")), b -> onClose()).bounds(x + 155, height - 27, 145, 20).build());
         positionContent();
@@ -83,9 +96,11 @@ public final class SettingsScreen extends Screen {
             int appearMs = Integer.parseInt(appear.getValue()), idleSeconds = Integer.parseInt(idle.getValue()), fadeMs = Integer.parseInt(fade.getValue());
             if (appearMs < 0 || appearMs > 2000 || idleSeconds < 1 || idleSeconds > 600 || fadeMs < 0 || fadeMs > 10000) throw new IllegalArgumentException(Messages.text("settings.validateMotion"));
             String newPattern = pattern.getValue(), newReply = reply.getValue();
+            int newCounterColor = parseCounterColor();
             Runnable apply = () -> {
                 mod.config.saveIntervalSeconds = seconds; mod.config.cacheMessages = messages; mod.config.pageSize = size;
                 mod.config.timestampPattern = newPattern; mod.config.replyTemplate = newReply;
+                mod.config.duplicateCounterColor = newCounterColor;
                 mod.config.retentionDays = policy.days(); mod.config.maxArchiveMessages = policy.messages();
                 mod.config.chatHudWidth = width; mod.config.chatHudHeightFocused = openHeight; mod.config.chatHudHeightUnfocused = closedHeight;
                 mod.config.chatAppearMillis = appearMs; mod.config.chatIdleSeconds = idleSeconds; mod.config.chatFadeMillis = fadeMs;
@@ -106,6 +121,20 @@ public final class SettingsScreen extends Screen {
         int value = Integer.parseInt(field.getValue().trim());
         if (value != 0 && (value < 20 || value > 8192)) throw new IllegalArgumentException(Messages.text("settings.validateHud"));
         return value;
+    }
+    private int parseCounterColor() {
+        String value = counterColor.getValue().trim();
+        if (value.startsWith("#")) value = value.substring(1);
+        if (!value.matches("[0-9a-fA-F]{6}")) throw new IllegalArgumentException(Messages.text("settings.validateCounterColor"));
+        return Integer.parseInt(value, 16);
+    }
+    private void updateCounterPreview() {
+        try {
+            counterPreview.setMessage(Component.literal(Messages.text("settings.counterColorPreview") + " ×3")
+                    .withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(parseCounterColor())));
+        } catch (IllegalArgumentException ex) {
+            counterPreview.setMessage(Component.literal(Messages.text("settings.validateCounterColor")));
+        }
     }
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         graphics.fill(0, 0, width, height, 0xF00D1721);

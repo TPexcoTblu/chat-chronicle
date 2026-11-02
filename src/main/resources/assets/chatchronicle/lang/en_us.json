@@ -145,5 +145,9 @@
   "error.regex": "Invalid or unsupported regular expression. Check the Regex option and its help.",
   "settings.validateTimePattern": "Invalid timestamp format. Example: HH:mm:ss.",
   "session.you": "You",
-  "error.detail": "Error: %s"
+  "error.detail": "Error: %s",
+  "settings.counterColor": "Duplicate counter color",
+  "settings.counterColorHelp": "Enter an RGB color as #RRGGBB, or click the preview to cycle presets. Default: #AAAAAA.",
+  "settings.counterColorPreview": "Next preset / preview:",
+  "settings.validateCounterColor": "Color must be 6 hex digits: #RRGGBB."
 }

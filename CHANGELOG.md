@@ -1,5 +1,11 @@
 # Chat Chronicle changelog
 
+## 0.1.0-alpha.9
+
+- Added a persistent duplicate-counter color setting: RGB hex input, nine clickable presets and a live preview in settings. Default remains gray (#AAAAAA).
+- The chosen color applies to counters in both the chat HUD and archive without changing original message formatting.
+- Consolidated documentation into English and Russian READMEs and kept the development plan local.
+
 ## 0.1.0-alpha.8
 
 - Restored clickable server components by routing open-chat clicks through Minecraft's native chat handler, including run-command, suggested-command, dialog, custom, URL and clipboard actions.

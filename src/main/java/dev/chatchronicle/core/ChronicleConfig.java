@@ -10,6 +10,7 @@ public final class ChronicleConfig {
     public boolean showSessionMarkers = true;
     public int saveIntervalSeconds = 2;
     public boolean compactDuplicates = true;
+    public int duplicateCounterColor = 0xAAAAAA;
     public boolean showTimestamps = true;
     public String timestampPattern = "HH:mm:ss";
     public String replyTemplate = "/msg $ ";
@@ -36,6 +37,7 @@ public final class ChronicleConfig {
             ChronicleConfig config = JSON.fromJson(Files.readString(path), ChronicleConfig.class);
             if (config == null) return new ChronicleConfig();
             config.language = "ru_ru".equals(config.language) ? "ru_ru" : "en_us";
+            if (config.duplicateCounterColor < 0 || config.duplicateCounterColor > 0xFFFFFF) config.duplicateCounterColor = 0xAAAAAA;
             config.saveIntervalSeconds = Math.clamp(config.saveIntervalSeconds, 1, 60);
             config.pageSize = Math.clamp(config.pageSize, 20, 500);
             config.cacheMessages = Math.clamp(config.cacheMessages, 100, 5000);

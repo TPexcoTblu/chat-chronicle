@@ -105,6 +105,6 @@ Set-Location 'C:\Users\deniska\Documents\New project'
 
 Версии: Minecraft 26.3, Loader 0.20.1, Fabric API 0.165.0+26.3, Loom 1.19.3, Gradle 9.8.2, SQLite JDBC 3.51.3.0, RE2/J 1.8.
 
-План и решения: [PLAN.md](PLAN.md). Сценарии ручной проверки: [TESTING.md](TESTING.md).
+Сценарии ручной проверки: [TESTING.md](TESTING.md).
 
 Английское описание для GitHub и Modrinth: [README.md](README.md). Текущий отчёт: [PROGRESS.md](PROGRESS.md). Изменения версий: [CHANGELOG.md](CHANGELOG.md). При каждом обновлении поддерживать эти документы по [RELEASING.md](RELEASING.md).

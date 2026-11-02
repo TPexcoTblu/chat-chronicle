@@ -10,3 +10,4 @@ run/
 .env
 .env.*
 !.env.example
+/PLAN.md

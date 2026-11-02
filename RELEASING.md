@@ -6,7 +6,7 @@ Keep these files current for every version:
 2. Maintain only two README files: `README.md` **in English** for GitHub and Modrinth, and `README.ru.md` in Russian. Include the current version, implemented features, controls, requirements, limitations, and build instructions. Keep release notes in `CHANGELOG.md`.
 3. Update `CHANGELOG.md`, keeping previous releases.
 4. Update the primary GitHub `README.md` **in English**, including the current JAR path and portable build instructions. Keep the optional Russian guide and this computer's local build paths separately in `README.ru.md`.
-5. Update `PLAN.md` and `PROGRESS.md`: completed work, remaining work, and prioritised improvements.
+5. Update `PROGRESS.md`: completed work, remaining work, and prioritised improvements. Keep `PLAN.md` local and outside Git.
 6. Add meaningful regression coverage for changed behaviour and update `TESTING.md` for manual checks.
 7. Run `build-mod.bat`; inspect the test report and confirm the JAR contains both language catalogs.
 

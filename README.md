@@ -129,7 +129,6 @@ This is an **early alpha**. Automated archive and regression checks pass, but vi
 - [Changelog](CHANGELOG.md)
 - [Release workflow](RELEASING.md)
 - [Russian user and local build guide](README.ru.md)
-- [Development plan (Russian)](PLAN.md)
 - [Progress report (Russian)](PROGRESS.md)
 - [Verification checklist (Russian)](TESTING.md)
 

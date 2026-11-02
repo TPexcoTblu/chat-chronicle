@@ -3,7 +3,7 @@
 Keep these files current for every version:
 
 1. Update `gradle.properties` and build the matching JAR.
-2. Update `MODRINTH_README.md` **in English**: current version, implemented features, controls, requirements, limitations, and the current release notes. This is the primary public Markdown description for Modrinth. Maintain the optional Russian description separately in `MODRINTH_README.ru.md`.
+2. Maintain only two README files: `README.md` **in English** for GitHub and Modrinth, and `README.ru.md` in Russian. Include the current version, implemented features, controls, requirements, limitations, and build instructions. Keep release notes in `CHANGELOG.md`.
 3. Update `CHANGELOG.md`, keeping previous releases.
 4. Update the primary GitHub `README.md` **in English**, including the current JAR path and portable build instructions. Keep the optional Russian guide and this computer's local build paths separately in `README.ru.md`.
 5. Update `PLAN.md` and `PROGRESS.md`: completed work, remaining work, and prioritised improvements.

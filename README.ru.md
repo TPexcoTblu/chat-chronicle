@@ -107,4 +107,4 @@ Set-Location 'C:\Users\deniska\Documents\New project'
 
 План и решения: [PLAN.md](PLAN.md). Сценарии ручной проверки: [TESTING.md](TESTING.md).
 
-Публичное описание для Modrinth: [MODRINTH_README.md](MODRINTH_README.md). Текущий отчёт: [PROGRESS.md](PROGRESS.md). Изменения версий: [CHANGELOG.md](CHANGELOG.md). При каждом обновлении поддерживать эти документы по [RELEASING.md](RELEASING.md).
+Английское описание для GitHub и Modrinth: [README.md](README.md). Текущий отчёт: [PROGRESS.md](PROGRESS.md). Изменения версий: [CHANGELOG.md](CHANGELOG.md). При каждом обновлении поддерживать эти документы по [RELEASING.md](RELEASING.md).

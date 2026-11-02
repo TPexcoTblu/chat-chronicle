@@ -127,11 +127,10 @@ This is an **early alpha**. Automated archive and regression checks pass, but vi
 ## Project documentation
 
 - [Changelog](CHANGELOG.md)
-- [Modrinth description](MODRINTH_README.md)
 - [Release workflow](RELEASING.md)
 - [Russian user and local build guide](README.ru.md)
 - [Development plan (Russian)](PLAN.md)
 - [Progress report (Russian)](PROGRESS.md)
 - [Verification checklist (Russian)](TESTING.md)
 
-The primary GitHub README and Modrinth description are maintained in English. Russian reference documents are kept separately.
+Use this English README for GitHub and the Modrinth description. The Russian version is maintained in README.ru.md. Release notes are in CHANGELOG.md; build instructions are included above.

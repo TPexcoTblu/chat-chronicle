@@ -87,7 +87,7 @@ class LocalizationAndSessionsTest {
         Properties properties = new Properties();
         try (var reader = Files.newBufferedReader(Path.of("gradle.properties"))) { properties.load(reader); }
         String version = properties.getProperty("version");
-        for (String document : List.of("README.md", "MODRINTH_README.md", "CHANGELOG.md", "PROGRESS.md")) {
+        for (String document : List.of("README.md", "README.ru.md", "CHANGELOG.md", "PROGRESS.md")) {
             assertTrue(Files.readString(Path.of(document)).contains(version), document + " must mention " + version);
         }
     }

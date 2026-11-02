@@ -42,6 +42,25 @@ class ArchiveStoreTest {
             assertThrows(RuntimeException.class, () -> new SearchQuery("[", null, null, true, false, false).compile());
         }
     }
+    @Test void regexChunkBoundariesKeepPagingDatesAndDeletionConsistent() throws Exception {
+        try (var store = open()) {
+            for (int i = 0; i < 1200; i++) await(store.append(record(i < 300 ? "2026-11-01" : "2026-11-02", "chunk item " + i)));
+            var query = new SearchQuery("^chunk item [0-9]+$", "2026-11-02", "2026-11-02", true, false, false);
+            var first = await(store.search(query, Long.MAX_VALUE, 300, new AtomicBoolean()));
+            assertEquals(300, first.rows().size()); assertTrue(first.more());
+            var selected = first.rows().get(10);
+            var scanning = store.search(new SearchQuery("^no-match$", null, null, true, false, false), Long.MAX_VALUE, 300, new AtomicBoolean());
+            await(store.delete(selected)); assertTrue(await(scanning).rows().isEmpty());
+            var second = await(store.search(query, first.cursor(), 300, new AtomicBoolean()));
+            assertEquals(300, second.rows().size());
+            var ids = new HashSet<String>(); first.rows().forEach(row -> assertTrue(ids.add(row.message().id())));
+            second.rows().forEach(row -> assertTrue(ids.add(row.message().id())));
+            assertTrue(second.rows().stream().allMatch(row -> row.message().day().equals("2026-11-02")));
+            var remaining = await(store.search(query, Long.MAX_VALUE, 1000, new AtomicBoolean()));
+            assertEquals(899, remaining.rows().size());
+            assertFalse(remaining.rows().stream().anyMatch(row -> row.message().id().equals(selected.message().id())));
+        }
+    }
     @Test void pagingAndContextUseRecordIdentityDespiteIdenticalText() throws Exception {
         try (var store = open()) {
             for (int i = 0; i < 250; i++) await(store.append(record("2026-11-02", "одинаково")));

@@ -2,6 +2,7 @@ plugins {
     id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 repositories { mavenCentral() }
+configurations { bundledSources }
 loom {
     splitEnvironmentSourceSets()
     mods { chatchronicle { sourceSet sourceSets.main; sourceSet sourceSets.client } }
@@ -12,6 +13,8 @@ dependencies {
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
     implementation include('org.xerial:sqlite-jdbc:3.51.3.0')
     implementation include('com.google.re2j:re2j:1.8')
+    bundledSources 'org.xerial:sqlite-jdbc:3.51.3.0:sources'
+    bundledSources 'com.google.re2j:re2j:1.8:sources'
     testImplementation platform('org.junit:junit-bom:5.12.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -27,4 +30,28 @@ java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
-test { useJUnitPlatform() }
+test { useJUnitPlatform { excludeTags 'release' } }
+tasks.withType(Jar).configureEach { from('LICENSE', 'NOTICE'); from('licenses') { into 'licenses' } }
+tasks.register('sourceArchive', Zip) {
+    archiveBaseName = 'chat-chronicle'
+    archiveVersion = project.version
+    archiveClassifier = 'source'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(projectDir) {
+        include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties', 'build-mod.bat'
+        include 'LICENSE', 'NOTICE', 'README.md', 'README.ru.md', 'CHANGELOG.md', 'TESTING.md', 'RELEASING.md'
+        include 'licenses/**'
+    }
+    from(configurations.bundledSources) { into 'third-party/sources' }
+}
+tasks.named('assemble') { dependsOn 'sourceArchive' }
+tasks.register('releaseCheck', Test) {
+    description = 'Isolated large-archive and real process-crash acceptance checks; excluded from normal builds.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'release' }
+    maxHeapSize = '1G'
+    systemProperty 'chronicle.test.classpath', sourceSets.test.runtimeClasspath.asPath
+    testLogging { events 'passed', 'failed'; showStandardStreams = true }
+}

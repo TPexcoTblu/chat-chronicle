@@ -10,6 +10,9 @@ Keep these files current for every version:
 6. Add meaningful regression coverage for changed behaviour and update `TESTING.md` for manual checks.
 7. Run `build-mod.bat`; inspect the test report and confirm the JAR contains both language catalogs.
 
-Write publication text around verified behaviour. Distinguish automated tests, client startup, and visual/server/modpack verification. Keep unspecified publication metadata, such as the project licence, as an open decision instead of inventing it.
+8. Run `gradlew releaseCheck` once for a release candidate, and again only if a changed storage/search behaviour affects its results. It uses temporary archives, a million generated messages and a child JVM that is forcibly terminated; it never targets a running player's client.
+9. Inspect the installable JAR and matching `build/distributions/chat-chronicle-VERSION-source.zip`. Both must contain LICENSE/NOTICE. The source ZIP includes project sources, build files, Gradle wrapper and the bundled libraries' Maven source JARs. Publish matching source access alongside binary downloads. Preserve the third-party notices in `licenses/`.
+
+The project license is **GPL-3.0-only**, copyright **TPexcoTblu**. This does not change the licenses of bundled libraries. Write publication text around verified behaviour. Distinguish automated tests, client startup, and visual/server/modpack verification. Do not mark a build stable just because it compiles or a release task passes.
 
 English is the primary language for the GitHub landing page and Modrinth description. Do not replace those files with Russian text or append a full Russian copy to them; link to the separate Russian documents where appropriate.

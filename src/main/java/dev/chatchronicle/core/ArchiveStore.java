@@ -390,27 +390,64 @@ public final class ArchiveStore implements AutoCloseable {
         });
     }
     public CompletableFuture<Page> search(SearchQuery query, long before, int limit, AtomicBoolean cancelled) {
-        return submit(() -> {
-            requireReady(); flush(); var pattern = query.compile(); List<Row> out = new ArrayList<>();
-            String literal = query.indexedLiteral();
-            String sql = "SELECT m.seq,m.json FROM messages m " + (literal == null ? "" : "JOIN search ON search.rowid=m.seq ") +
-                    "WHERE m.deleted=0 AND m.seq<? " + (literal == null ? "" : "AND search MATCH ? ") +
-                    (query.fromDay() == null ? "" : "AND m.day>=? ") + (query.toDay() == null ? "" : "AND m.day<=? ") + "ORDER BY m.seq DESC";
-            try (PreparedStatement st = db.prepareStatement(sql)) {
-                int n = 1; st.setLong(n++, before);
-                if (literal != null) st.setString(n++, "\"" + literal.replace("\"", "\"\"") + "\"");
-                if (query.fromDay() != null) st.setString(n++, query.fromDay());
-                if (query.toDay() != null) st.setString(n, query.toDay());
-                try (ResultSet rs = st.executeQuery()) {
-                    while (!cancelled.get() && rs.next()) {
-                        Row row = parse(rs);
-                        if (row != null && SessionMarkers.searchVariants(row.message()).stream().anyMatch(text -> pattern.matcher(text).find())) out.add(row);
-                        if (out.size() > limit) break;
+        var scan = new SearchScan(query, before, limit, cancelled);
+        scan.enqueue(); return scan.result;
+    }
+    /** Release the worker after each bounded scan so incoming writes and scheduled flushes can run. */
+    private final class SearchScan implements Runnable {
+        private static final int CHUNK = 256;
+        private final SearchQuery query;
+        private final long before;
+        private final int limit;
+        private final AtomicBoolean cancelled;
+        private final CompletableFuture<Page> result = new CompletableFuture<>();
+        private final List<Row> rows = new ArrayList<>();
+        private com.google.re2j.Pattern pattern;
+        private String literal, sql;
+        private long cursor, maintenance;
+        SearchScan(SearchQuery query, long before, int limit, AtomicBoolean cancelled) {
+            this.query = query; this.before = before; this.cursor = before; this.limit = limit; this.cancelled = cancelled;
+        }
+        void enqueue() {
+            if (closed.get()) { result.completeExceptionally(new IllegalStateException(Messages.text("archive.closed"))); return; }
+            try { worker.execute(this); }
+            catch (RejectedExecutionException ex) { result.completeExceptionally(new IllegalStateException(Messages.text("archive.closed"))); }
+        }
+        @Override public void run() {
+            if (result.isDone()) return;
+            if (closed.get()) { result.completeExceptionally(new IllegalStateException(Messages.text("archive.closed"))); return; }
+            try {
+                requireReady();
+                if (pattern == null) {
+                    flush(); pattern = query.compile(); literal = query.indexedLiteral(); maintenance = maintenanceRevision;
+                    // A rowid scan avoids sorting a whole date range again for every regex chunk.
+                    sql = "SELECT m.seq,m.json FROM messages m " + (literal == null ? "NOT INDEXED " : "JOIN search ON search.rowid=m.seq ") +
+                            "WHERE m.deleted=0 AND m.seq<? " + (literal == null ? "" : "AND search MATCH ? ") +
+                            (query.fromDay() == null ? "" : "AND m.day>=? ") + (query.toDay() == null ? "" : "AND m.day<=? ") + "ORDER BY m.seq DESC LIMIT ?";
+                }
+                if (maintenance != maintenanceRevision) {
+                    rows.clear(); cursor = before; maintenance = maintenanceRevision;
+                }
+                int scanned = 0;
+                if (!cancelled.get() && !result.isCancelled()) try (PreparedStatement st = db.prepareStatement(sql)) {
+                    int n = 1; st.setLong(n++, cursor);
+                    if (literal != null) st.setString(n++, "\"" + literal.replace("\"", "\"\"") + "\"");
+                    if (query.fromDay() != null) st.setString(n++, query.fromDay());
+                    if (query.toDay() != null) st.setString(n++, query.toDay());
+                    st.setInt(n, CHUNK);
+                    try (ResultSet rs = st.executeQuery()) {
+                        while (!cancelled.get() && rs.next()) {
+                            scanned++; cursor = rs.getLong(1);
+                            Row row = parse(rs);
+                            if (row != null && SessionMarkers.searchVariants(row.message()).stream().anyMatch(text -> pattern.matcher(text).find())) rows.add(row);
+                            if (rows.size() > limit) break;
+                        }
                     }
                 }
-            }
-            return makePage(out, limit);
-        });
+                if (cancelled.get() || scanned < CHUNK || rows.size() > limit) result.complete(makePage(rows, limit));
+                else enqueue();
+            } catch (Exception ex) { fail(ex); result.completeExceptionally(ex); }
+        }
     }
     private Page makePage(List<Row> rows, int limit) {
         boolean more = rows.size() > limit;

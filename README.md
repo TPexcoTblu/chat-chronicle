@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.3 · Fabric · Client-side · English and Russian**
 
-Current version: **0.1.0-alpha.10**
+Current version: **0.1.0-beta.1**
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -29,7 +29,7 @@ Clickable message components use Minecraft's native chat actions, including serv
 
 1. Use **Minecraft Java 26.3**, **Java 25**, and **Fabric Loader 0.20.1 or newer**.
 2. Install **Fabric API for Minecraft 26.3**. The tested version is **0.165.0+26.3**.
-3. Place `chat-chronicle-0.1.0-alpha.10.jar` in the game profile's `mods` folder.
+3. Place `chat-chronicle-0.1.0-beta.1.jar` in the game profile's `mods` folder.
 4. Open chat and choose **History / Search** or **Settings**.
 
 Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
@@ -111,22 +111,30 @@ On Linux or macOS:
 ./gradlew runClient
 ```
 
-The installable JAR is written to `build/libs/chat-chronicle-0.1.0-alpha.10.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+The installable JAR is written to `build/libs/chat-chronicle-0.1.0-beta.1.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+
+`gradlew releaseCheck` runs the optional large-archive and forced-process-recovery checks. They are excluded from normal builds and use temporary data. On Windows, use `gradlew.bat releaseCheck`; on Linux/macOS, use `./gradlew releaseCheck`.
 
 Pinned versions: Minecraft **26.3**, Loader **0.20.1**, Fabric API **0.165.0+26.3**, Loom **1.19.3**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**.
 
-## Alpha status and known limitations
+## Beta status and known limitations
 
-This is an **early alpha**. Automated archive and regression checks pass, but visual verification across GUI scales, servers, and modpacks remains ongoing.
+This is a **beta build**. Automated archive and regression checks pass, but visual verification across GUI scales, servers, and modpacks remains ongoing.
 
 - Compatibility with other mods that replace the chat UI has not been established.
-- Heavy regex searches, initial index rebuilding, and manual compaction share the archive worker with writes and can delay queued work.
+- Regex and short-query scans yield between batches so queued writes and scheduled saves can proceed. Initial index rebuilding and manual compaction still occupy the archive worker; avoid running compaction while actively chatting.
 - Regex uses RE2; backreferences and lookaround are unsupported. Short queries and regex queries can scan a large part of the archive.
 - Sender names and UUIDs are available only when provided by the server.
 - A normal right-click on a collapsed group targets its latest original message. Use context to select another repeat, or multi-select the group to act on its selection snapshot.
 - Arbitrary shortcut remapping and a separate persistent history of typed commands are not implemented yet.
 - Server-requested deletion of signed messages is not synchronised with the permanent archive.
 - Changing the time zone does not regroup previously stored days.
+
+## License
+
+Copyright © 2026 TPexcoTblu. Chat Chronicle is licensed under [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`). Copyright remains with the author. You may use and modify the code; when distributing a covered derivative, provide its corresponding source under GPL v3 and retain the required notices. Private changes that are not distributed do not have to be published.
+
+Publish the matching `build/distributions/chat-chronicle-VERSION-source.zip` alongside the mod JAR, or provide equivalent access to the corresponding source. This archive includes the source, build scripts and Gradle wrapper. Bundled libraries keep their own licenses.
 
 ## Project documentation
 

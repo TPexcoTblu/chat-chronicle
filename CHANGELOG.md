@@ -1,5 +1,12 @@
 # Chat Chronicle changelog
 
+## 0.1.0-beta.1
+
+- Full regex and short-query scans yield after batches of 256 candidates, allowing incoming writes and scheduled saves to proceed. Search restarts after archive maintenance to avoid retaining deleted results across batches.
+- Added optional release acceptance checks with one million generated messages and a real forced child-process termination/recovery scenario. They use temporary archives and are excluded from normal builds.
+- Added GPL-3.0-only licensing, copyright TPexcoTblu, third-party notices and a matching source ZIP with build scripts, Gradle wrapper and the bundled libraries' Maven source JARs.
+- Updated the verification checklist to distinguish completed checks from remaining manual coverage. This is a beta, not a stable release.
+
 ## 0.1.0-alpha.10
 
 - Cache decoded components and wrapped messages within the configured message-cache limit. Unchanged messages reuse their layout when new messages arrive.

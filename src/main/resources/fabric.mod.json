@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "chatchronicle",
+  "version": "${version}",
+  "name": "Chat Chronicle",
+  "description": "Daily chat history, indexed search and message context.",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.chatchronicle.client.ChatChronicle"] },
+  "mixins": ["chatchronicle.client.mixins.json"],
+  "depends": { "fabricloader": ">=0.20.1", "minecraft": "26.3", "java": ">=25", "fabric-api": "*" }
+}

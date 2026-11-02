@@ -1,52 +1,64 @@
 # Chat Chronicle
 
-Клиентский мод истории чата для Minecraft Java 26.3 / Fabric. Текущая версия: **0.1.0-alpha.7**. Название проекта окончательное.
+> Daily chat history, search with context, and clear markers for every visit.
 
-## Возможности alpha
+**Minecraft Java 26.3 · Fabric · Client-side · English and Russian**
 
-- Полная локализация интерфейса: English и Русский. По умолчанию — English, независимо от языка Minecraft. Переключатель Language/Язык находится в начале настроек; незавершённые изменения числовых полей при переключении сохраняются.
+Current version: **0.1.0-alpha.7**
 
-- Одна общая история на календарный день, локальная полночь — начало следующего дня.
-- Миры и серверы вместе. Каждый вход отмечается сохраняемым разделителем с именем игрока и названием мира/сервера; общая дневная история остаётся единой.
-- Сохранение всех сообщений обычного чата с исходным JSON, цветами, стилями и интерактивными элементами.
-- Архив без ограничения числа сообщений и срока хранения; ограничен кэш в памяти.
-- Прокрутка с загрузкой порциями, экран дней с количеством сообщений, календарь.
-- Поиск по всему архиву или периоду; отдельные флажки Regex, Регистр и Слово. По умолчанию поиск по части текста.
-- Список совпадений; нажатие на результат загружает участок истории вокруг него и подсвечивает выбранное сообщение.
-- Сворачивание последовательных одинаковых сообщений по умолчанию. Каждая исходная запись остаётся в архиве.
-- Полный счётчик серии повторов хранится в индексе и не зависит от размера загруженной порции. В контексте найденного сообщения повторы развёрнуты для точного выбора оригинала.
-- Повторы сравниваются по видимому тексту/оформлению, отправителю и типу сообщения. Изменяемые сервером click/hover payloads и insertion не мешают сворачиванию. Каждая исходная ссылка и подсказка сохраняется в JSON своей записи; свёрнутая строка показывает последнюю запись группы.
-- ПКМ: копирование обычного/форматированного текста, без времени/счётчика, JSON, ссылки, время/дата/Unix time, имя/UUID, счётчик, ответ, переход в историю, скрытие и удаление.
-- Shift+ПКМ копирует исходный текст; Ctrl+ПКМ открывает контекст. Оба действия отключаются в настройках.
-- Формат времени, шаблон ответа, размер кэша/порции, интервал фиксации на диск настраиваются.
-- Проверка контрольных сумм, пропуск повреждённых записей, восстановление поискового индекса и отметки незавершённого запуска.
-- Необязательные лимиты по календарным дням и количеству сообщений; 0 означает отсутствие лимита. Включение/изменение лимитов подтверждается отдельно. При включённой политике проверка выполняется при её применении и затем раз в минуту.
-- Отдельное освобождение места: журналы переписываются атомарно без удалённых записей, SQLite/FTS уплотняются.
-- В обычном чате используются ванильные ширина, высота, масштаб, прозрачность текста/фона и межстрочный интервал. Старые строки затухают по своему времени получения.
-- В настройках мода можно отдельно задать ширину HUD, высоту открытого и высоту закрытого чата. Значения: 20–8192 GUI-пикселя; 0 использует соответствующую ванильную настройку. Размер ограничивается доступной областью окна. Масштаб текста остаётся ванильным. Эти параметры не изменяют размеры отдельного экрана истории.
-- Плавное появление новых сообщений и затухание при неактивности. Настраиваются появление (по умолчанию 180 мс), простой (8 сек.) и затухание (1200 мс). Можно отключить анимации и отдельно затухание открытого чата. Движение мыши, клавиши, прокрутка и новые сообщения возвращают видимость; просмотр старой переписки, меню и выделение удерживают открытый чат видимым. Экран архива не затухает.
-- Мультивыбор через Shift+ЛКМ с групповым копированием, скрытием и удалением. Выделение привязано к записям, а не к тексту или номерам строк на экране.
+[Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
-## Установка и открытие
+## Features
 
-1. Создать отдельный тестовый профиль Minecraft **26.3**, **Java 25**, **Fabric Loader 0.20.1**.
-2. Установить **Fabric API 0.165.0+26.3**.
-3. Поместить `build/libs/chat-chronicle-0.1.0-alpha.7.jar` в папку `mods` профиля. SQLite и RE2 уже вложены в JAR. Одновременно оставлять в `mods` только одну версию Chat Chronicle.
-4. Открыть чат: справа сверху кнопки истории/поиска и настроек. Также работает Ctrl+F в открытом чате.
-5. В истории выбрать день или ввести запрос. Даты задаются как `YYYY-MM-DD`. Пустые даты означают весь архив.
-6. Нажать на результат для просмотра контекста; кнопка «Результаты» возвращает поиск.
-7. ПКМ по любой строке сообщения открывает меню. Колесо прокручивает длинное меню.
-8. Shift+ЛКМ добавляет/снимает выделение сообщения. ПКМ по выделенному открывает групповые действия. Ctrl+C копирует выделенное; Delete запрашивает подтверждение удаления; Esc снимает выделение. Shift+ПКМ остаётся быстрым копированием, если нет активного выделения.
+- **Persistent daily history.** Worlds and servers share one chronological archive. Each day starts at local midnight; reconnecting adds a visit separator within the same day.
+- **No retention limit by default.** History is loaded in batches with a bounded memory cache. Optional age and message-count limits are available.
+- **Search with context.** Search all history, a day, or a date range. Enable regex, case sensitivity, and whole-word matching separately. Click a result to open its position in the conversation.
+- **Day navigation.** Browse a list of dates with message counts or jump through the calendar.
+- **Duplicate stacking.** Consecutive repeats display a counter, even when server-generated hover or click data changes. Every original record retains its own formatting and interaction data.
+- **Message actions.** Right-click to copy text, formatting, JSON, links, timestamps, sender details, and duplicate counts; prepare a reply, open context, hide a message, or delete it.
+- **Multiple selection.** Shift-click rows to copy, hide, or delete them together. New arrivals never silently expand a selection.
+- **Customisable HUD.** Set width and focused/unfocused heights independently, or follow vanilla settings. Configure timestamps, reply templates, appearance animations, and idle fading.
+- **English and Russian localisation.** English is the default, independently of Minecraft's language. Change the language at the top of the mod's settings.
+- **Local storage and recovery.** Checksummed journals, a rebuildable search index, interrupted-run detection, and explicit archive compaction.
 
-В мультивыборе свёрнутая группа включает все исходные повторы на момент выбора; новые сообщения после выбора не добавляются к удалению. Копирование выполняется по одной записи на выбранную видимую строку, по времени от старых к новым; вариант «Как на экране» включает время и счётчик. Для выбора отдельных повторов открыть контекст, где они развёрнуты. Выделение сохраняется при подгрузке истории и возврате из подтверждения в тот же экран; смена поиска/дня/контекста его очищает.
+Command suggestions draw above the chat panel and receive clicks and scrolling before the history underneath. An explicitly opened message context menu stays on top.
 
-## Хранение
+## Installation
 
-Разделители входов записываются как отдельные локальные сообщения SESSION_START. Они разрывают серии повторов, сохраняются между запусками и переводятся при показе. Новые разделители можно отключить в настройках; уже сохранённые остаются в истории. Смена измерения не создаёт новый вход. Служебный текст новых разделителей в архиве канонически хранится на английском, а отображается на выбранном языке. Поиск учитывает названия мест и оба языковых варианта разделителя, не изменяя оригинальные записи.
+1. Use **Minecraft Java 26.3**, **Java 25**, and **Fabric Loader 0.20.1 or newer**.
+2. Install **Fabric API for Minecraft 26.3**. The tested version is **0.165.0+26.3**.
+3. Place `chat-chronicle-0.1.0-alpha.7.jar` in the game profile's `mods` folder.
+4. Open chat and choose **History / Search** or **Settings**.
 
-При первом запуске alpha.4 индекс предыдущих версий перестраивается из журналов, чтобы пересчитать группы повторов по исправленным правилам. Исходные записи не изменяются; большой архив может потребовать времени на эту операцию.
+Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
 
-В папке текущего профиля игры:
+## Controls
+
+| Action | Control |
+| --- | --- |
+| Open history and search | **Ctrl+F** while chat is open, or **History / Search** |
+| Open message actions | **Right-click** a message |
+| Select or deselect a row | **Shift+Left-click** |
+| Open group actions | Right-click a selected row |
+| Copy selected rows | **Ctrl+C** |
+| Delete selected rows | **Delete**, then confirm |
+| Clear selection | **Esc** |
+| Quickly copy original text | **Shift+Right-click**, with no active selection |
+| Open message context | **Ctrl+Right-click**, with no active selection |
+| Scroll history by a page | **Page Up / Page Down** |
+| Run a search | **Enter** in the history screen |
+
+The two right-click shortcuts can be disabled in settings.
+
+A selected collapsed group includes the original repeats present when it was selected. Later arrivals are excluded from deletion. Copying uses one entry per selected visible row, ordered from oldest to newest; **As displayed** includes timestamps and counters. Open context to select individual repeats.
+
+## Settings and storage
+
+HUD dimensions accept **20–8192 GUI pixels**; `0` follows the corresponding vanilla setting. Dimensions fit the available window area. Minecraft's text scale, opacity, and line spacing remain in use.
+
+Default animation timings are **180 ms** for appearance, **8 seconds** before fading, and **1200 ms** for fading. Reading older history, opening a menu, or selecting messages keeps the open chat visible. The separate archive screen does not fade.
+
+Files are stored in the current game profile:
 
 ```text
 chat-chronicle/
@@ -56,53 +68,68 @@ chat-chronicle/
 config/chat-chronicle.json
 ```
 
-Журнал дополняется записями `CRC32<TAB>JSON<NEWLINE>`. Исходный Component JSON хранится отдельно от времени и счётчиков интерфейса. Поисковый индекс SQLite/FTS5 можно восстановить из журналов; повреждённый индекс при следующем запуске переименовывается и строится заново. Незавершённая или некорректная запись пропускается; остальная история остаётся доступной.
+Chat Chronicle does not upload the archive. Visit markers are persisted as separate entries, split duplicate runs, and remain available after restarting. Their labels display in the selected language and are searchable in English and Russian.
 
-Запись поступает в журнал через рабочий поток, принудительная фиксация выполняется по интервалу (по умолчанию 2 секунды), а также перед запросами истории и при штатном завершении. Авария может затронуть последние незафиксированные записи. Маркер незавершённого запуска означает отсутствие штатного закрытия, а не доказанную потерю сообщений.
+Journals use append-only `CRC32<TAB>JSON<NEWLINE>` records. Original component JSON is stored separately from HUD timestamps and counters. Damaged or incomplete records are skipped during recovery; a damaged SQLite/FTS index is renamed and rebuilt from the journals.
 
-Удаление из архива — логическое: запись исключается из просмотра и поиска, в журнал добавляется tombstone. Исходные байты сохраняются до отдельного действия «Освободить место удалённых записей…» в настройках. Это действие физически переписывает журналы без удалённых записей и уплотняет индекс. Живая переписка сохраняется. «Скрыть с экрана» действует до перезапуска игры.
+The default save interval is **2 seconds**. Writes are forced to disk on the configured interval, before history queries, and during normal shutdown. A crash may still lose the latest unflushed records. An unclean-shutdown marker indicates that shutdown did not finish; it does not prove that messages were lost.
 
-Лимит дней считает календарные даты, включая сегодня: 1 оставляет только сегодняшний день. Лимит сообщений оставляет последние N исходных сообщений, а не N свёрнутых групп. Если включены оба ограничения, применяются оба. Возврат к 0 не восстанавливает уже исключённые записи. По умолчанию оба лимита равны 0.
+Retention limits default to `0`, meaning unlimited. A day limit of `1` keeps today only. Message limits count original messages rather than collapsed groups. If both limits are enabled, both apply. Increasing or disabling a limit does not restore excluded records.
 
-Индекс содержит копию текста и данных сообщений для быстрого чтения. Размер архива на диске включает журнал, индекс и его служебные файлы.
+Deletion removes records from history and search and appends a tombstone to the journal. Use **Reclaim space from deleted records…** to rewrite journals without deleted records and compact the index. **Hide from view** lasts until restart.
 
-## Ограничения alpha и следующие этапы
+## Build from source
 
-- Автоматические проверки и запуск клиента выполнены. Визуальные проверки в мире, поведения мыши/прокрутки и совместимости со сборкой пользователя ещё не завершены.
-- Не проверена совместная работа с Chat Patches и другими модами, заменяющими чат. Первую проверку проводить в чистом тестовом профиле.
-- Произвольное переназначение сочетаний модификаторов — следующий этап; пока отдельными флажками включаются два начальных сочетания.
-- Ванильные размеры/масштаб/прозрачность/интервалы подключены, но их внешний вид и точность кликов ещё требуют визуальной проверки в мире.
-- ПКМ по свёрнутой группе выбирает последнее сообщение группы. Для выбора конкретного повтора открыть контекст: там исходные записи развёрнуты. Удаление через ПКМ удаляет одну выбранную запись.
-- Очень большой regex-поиск, первоначальная перестройка индекса и ручное освобождение места пока используют тот же рабочий поток, что и запись. Они не выполняются в игровом потоке, но могут задерживать обработку новых записей; раздельные очереди — дальнейшая оптимизация.
-- Имя и UUID доступны для сообщений, где сервер передал профиль отправителя. Для системного или изменённого сервером чата автор может быть неизвестен.
-- RE2 поддерживает регулярные выражения без обратных ссылок и lookaround. Regex-поиск и короткие запросы менее трёх символов могут просматривать большой участок архива; отмена поддерживается.
-- Отдельный постоянный архив введённых команд пока не добавлен: используется штатная история ввода Minecraft.
-- Серверное удаление подписанного сообщения пока не синхронизируется с постоянным архивом; правило нужно согласовать отдельно.
-- Смена часового пояса не перегруппировывает уже сохранённые дни.
+Install **JDK 25**. Both the Gradle daemon and Java toolchain request Java 25; if automatic discovery fails, set `JAVA_HOME` to its installation directory.
 
-## Разработка
+```sh
+git clone https://github.com/TPexcoTblu/chat-chronicle.git
+cd chat-chronicle
+```
 
-Полный путь к проекту на этом компьютере: `C:\Users\deniska\Documents\New project`.
-
-Готовый JAR: `C:\Users\deniska\Documents\New project\build\libs\chat-chronicle-0.1.0-alpha.7.jar`.
-
-Файл настройки сборки: `C:\Users\deniska\Documents\New project\build.gradle`.
-
-Скрипт самостоятельной сборки: `C:\Users\deniska\Documents\New project\build-mod.bat`. Он работает и при запуске из другой папки.
-
-Требуется установленный JDK 25. Версия 25 указана для Gradle daemon и Java toolchain; если автообнаружение недоступно, задать `JAVA_HOME` на каталог JDK 25.
+On Windows:
 
 ```powershell
-Set-Location 'C:\Users\deniska\Documents\New project'
 .\gradlew.bat build
 .\gradlew.bat test
 .\gradlew.bat runClient
 ```
 
-Либо выполнить `.\build-mod.bat`. Результат сборки находится в `build\libs`; файл с суффиксом `-sources.jar` содержит исходники и для установки в игру не нужен.
+You can also run `build-mod.bat`, including from another working directory.
 
-Версии: Minecraft 26.3, Loader 0.20.1, Fabric API 0.165.0+26.3, Loom 1.19.3, Gradle 9.8.2, SQLite JDBC 3.51.3.0, RE2/J 1.8.
+On Linux or macOS:
 
-План и решения: [PLAN.md](PLAN.md). Сценарии ручной проверки: [TESTING.md](TESTING.md).
+```sh
+./gradlew build
+./gradlew test
+./gradlew runClient
+```
 
-Публичное описание для Modrinth: [MODRINTH_README.md](MODRINTH_README.md). Текущий отчёт: [PROGRESS.md](PROGRESS.md). Изменения версий: [CHANGELOG.md](CHANGELOG.md). При каждом обновлении поддерживать эти документы по [RELEASING.md](RELEASING.md).
+The installable JAR is written to `build/libs/chat-chronicle-0.1.0-alpha.7.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+
+Pinned versions: Minecraft **26.3**, Loader **0.20.1**, Fabric API **0.165.0+26.3**, Loom **1.19.3**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**.
+
+## Alpha status and known limitations
+
+This is an **early alpha**. Automated archive and regression checks pass, but visual verification across GUI scales, servers, and modpacks remains ongoing.
+
+- Compatibility with other mods that replace the chat UI has not been established.
+- Heavy regex searches, initial index rebuilding, and manual compaction share the archive worker with writes and can delay queued work.
+- Regex uses RE2; backreferences and lookaround are unsupported. Short queries and regex queries can scan a large part of the archive.
+- Sender names and UUIDs are available only when provided by the server.
+- A normal right-click on a collapsed group targets its latest original message. Use context to select another repeat, or multi-select the group to act on its selection snapshot.
+- Arbitrary shortcut remapping and a separate persistent history of typed commands are not implemented yet.
+- Server-requested deletion of signed messages is not synchronised with the permanent archive.
+- Changing the time zone does not regroup previously stored days.
+
+## Project documentation
+
+- [Changelog](CHANGELOG.md)
+- [Modrinth description](MODRINTH_README.md)
+- [Release workflow](RELEASING.md)
+- [Russian user and local build guide](README.ru.md)
+- [Development plan (Russian)](PLAN.md)
+- [Progress report (Russian)](PROGRESS.md)
+- [Verification checklist (Russian)](TESTING.md)
+
+The primary GitHub README and Modrinth description are maintained in English. Russian reference documents are kept separately.

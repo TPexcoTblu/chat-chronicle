@@ -2,7 +2,7 @@
 
 > **Your chat, kept in order.** Daily history, search with context, and clear markers for every visit.
 
-**Minecraft Java 26.3 · Fabric · Client-side · English / Русский**
+**Minecraft Java 26.3 · Fabric · Client-side · English / Russian**
 
 Current build: **0.1.0-alpha.7**
 
@@ -48,7 +48,7 @@ Copy plain or formatted text, text without timestamps/counters, JSON, links, tim
 - Adjust timestamp formatting and the reply template.
 - Configure smooth message appearance, idle delay, and fading.
 - Reading older history, opening a menu, or selecting messages keeps the open chat visible.
-- Choose **English** or **Русский** independently of Minecraft's language. **English is the default.**
+- Choose **English** or **Russian** independently of Minecraft's language. **English is the default.**
 
 ## Controls
 
@@ -110,32 +110,3 @@ Optional day/message limits are disabled by default. Enabling or changing them r
 - Complete English and Russian translations for the mod interface, including menus, calendar, confirmations, hints, and archive status. English is selected by default.
 - Language switching preserves edited settings fields.
 - Chat Chronicle is now the final project name.
-
----
-
-## Русский
-
-**Chat Chronicle сохраняет историю чата по дням и помогает находить сообщения вместе с контекстом.** Миры и серверы находятся в общей хронологической истории. По умолчанию нет ограничения количества сообщений или срока хранения.
-
-### Возможности
-
-- Поиск по всему архиву, конкретному дню или периоду; отдельные флажки Regex, регистра и целого слова.
-- Переход от результата поиска к нужному месту переписки с просмотром соседних сообщений.
-- Список дней с количеством записей и календарь.
-- Разделитель с временем, именем игрока и названием мира/сервера при каждом входе. Повторные входы видны, но не разбивают день на отдельные файлы сессий.
-- Сворачивание последовательных повторов со счётчиком с сохранением оригиналов.
-- Меню ПКМ: текст, форматирование, JSON, ссылки, время, отправитель, ответ, переход в историю, скрытие и удаление.
-- Мультивыбор через **Shift+ЛКМ**, групповые действия через ПКМ, **Ctrl+C** для копирования и **Delete** для удаления с подтверждением.
-- Отдельные настройки ширины HUD и высоты открытого/закрытого чата, времени сообщений, появления и затухания.
-- Полный интерфейс на английском и русском. По умолчанию — **English**; язык меняется в начале настроек мода и не зависит от языка Minecraft.
-- Локальное хранение, восстановление после повреждённых записей, необязательные лимиты и освобождение места после удаления.
-
-### Установка и начало работы
-
-Нужны **Minecraft Java 26.3**, **Java 25**, **Fabric Loader 0.20.1+** и **Fabric API для 26.3**. Проверенная версия API — **0.165.0+26.3**. Установите один JAR Chat Chronicle в папку `mods` профиля; серверу мод не требуется.
-
-Откройте чат → **Settings** → **Language: English**, чтобы переключить язык на русский. История и поиск доступны из чата или через **Ctrl+F**. В мультивыборе свёрнутая группа включает её повторы на момент выделения, а новые сообщения не добавляются к удалению.
-
-История находится в папке `chat-chronicle`, настройки — в `config/chat-chronicle.json`. Архив никуда не отправляется. Интервал записи по умолчанию — **2 секунды**. После аварии последние незафиксированные сообщения могут быть потеряны. Лимиты по умолчанию выключены, их включение подтверждается отдельно. Физическая очистка удалённых записей запускается отдельным действием в настройках.
-
-**Версия остаётся alpha:** автоматические проверки выполнены, визуальная проверка на серверах и в разных сборках продолжается. Совместимость с другими заменами чата пока не установлена. Regex не поддерживает обратные ссылки и lookaround; тяжёлые операции пока могут задерживать очередь архива.

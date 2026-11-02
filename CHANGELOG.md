@@ -2,6 +2,8 @@
 
 ## 0.1.0-alpha.7
 
+- Made the primary GitHub README and Modrinth description English, with separate optional Russian reference documents.
+
 - Render the chat panel below vanilla input and command suggestions, using a separate render stratum.
 - Let suggestions handle mouse clicks and scrolling before the chat history underneath.
 - Keep the explicitly opened message context menu above both layers, with matching input priority.

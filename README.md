@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.3 · Fabric · Client-side · English and Russian**
 
-Current version: **0.1.0-beta.1**
+Current version: **0.1.0**
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -29,7 +29,7 @@ Clickable message components use Minecraft's native chat actions, including serv
 
 1. Use **Minecraft Java 26.3**, **Java 25**, and **Fabric Loader 0.20.1 or newer**.
 2. Install **Fabric API for Minecraft 26.3**. The tested version is **0.165.0+26.3**.
-3. Place `chat-chronicle-0.1.0-beta.1.jar` in the game profile's `mods` folder.
+3. Place `chat-chronicle-0.1.0.jar` in the game profile's `mods` folder.
 4. Open chat and choose **History / Search** or **Settings**.
 
 Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
@@ -111,15 +111,15 @@ On Linux or macOS:
 ./gradlew runClient
 ```
 
-The installable JAR is written to `build/libs/chat-chronicle-0.1.0-beta.1.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+The installable JAR is written to `build/libs/chat-chronicle-0.1.0.jar`. The `-sources.jar` file contains source code and is not the mod to install.
 
 `gradlew releaseCheck` runs the optional large-archive and forced-process-recovery checks. They are excluded from normal builds and use temporary data. On Windows, use `gradlew.bat releaseCheck`; on Linux/macOS, use `./gradlew releaseCheck`.
 
 Pinned versions: Minecraft **26.3**, Loader **0.20.1**, Fabric API **0.165.0+26.3**, Loom **1.19.3**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**.
 
-## Beta status and known limitations
+## Initial release and known limitations
 
-This is a **beta build**. Automated archive and regression checks pass, but visual verification across GUI scales, servers, and modpacks remains ongoing.
+This is the **first public release**. Automated archive and regression checks pass, but visual verification across GUI scales, servers, and modpacks remains ongoing.
 
 - Compatibility with other mods that replace the chat UI has not been established.
 - Regex and short-query scans yield between batches so queued writes and scheduled saves can proceed. Initial index rebuilding and manual compaction still occupy the archive worker; avoid running compaction while actively chatting.

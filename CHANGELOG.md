@@ -1,5 +1,17 @@
 # Chat Chronicle changelog
 
+## 0.1.0
+
+First public release for Minecraft Java 26.3 / Fabric, with English and Russian UI.
+
+- Persistent shared daily history, indexed search with date/regex flags, and jumps to message context.
+- Consecutive duplicate counters with configurable colors, message actions, multi-selection and configurable chat dimensions/animations.
+- Checksummed journals, a rebuildable search index, optional retention and explicit compaction.
+- Bounded component/layout/text caches and cooperative search batches that let queued writes and saves proceed.
+- GPL-3.0-only, matching source archive, third-party notices and project icon included.
+
+Validation: 31 regular tests plus two isolated acceptance checks (one million messages and forced child-process recovery). Known compatibility and maintenance limitations are documented in the README.
+
 ## 0.1.0-beta.1
 
 - Full regex and short-query scans yield after batches of 256 candidates, allowing incoming writes and scheduled saves to proceed. Search restarts after archive maintenance to avoid retaining deleted results across batches.

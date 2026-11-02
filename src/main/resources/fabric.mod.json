@@ -3,6 +3,7 @@
   "id": "chatchronicle",
   "version": "${version}",
   "name": "Chat Chronicle",
+  "icon": "assets/chatchronicle/icon.png",
   "authors": ["TPexcoTblu"],
   "license": "GPL-3.0-only",
   "contact": { "sources": "https://github.com/TPexcoTblu/chat-chronicle", "issues": "https://github.com/TPexcoTblu/chat-chronicle/issues" },

@@ -41,6 +41,7 @@ tasks.register('sourceArchive', Zip) {
         include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties', 'build-mod.bat'
         include 'LICENSE', 'NOTICE', 'README.md', 'README.ru.md', 'CHANGELOG.md', 'TESTING.md', 'RELEASING.md'
         include 'licenses/**'
+        include 'tools/**'
     }
     from(configurations.bundledSources) { into 'third-party/sources' }
 }

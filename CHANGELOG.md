@@ -1,5 +1,11 @@
 # Chat Chronicle changelog
 
+## 0.1.0-alpha.8
+
+- Restored clickable server components by routing open-chat clicks through Minecraft's native chat handler, including run-command, suggested-command, dialog, custom, URL and clipboard actions.
+- Use vanilla glyph hit detection with the rendered line's scale, position and appearance-animation offset.
+- History context supports game click actions; suggested commands open the chat input instead of disappearing into the history screen.
+
 ## 0.1.0-alpha.7
 
 - Made the primary GitHub README and Modrinth description English, with separate optional Russian reference documents.

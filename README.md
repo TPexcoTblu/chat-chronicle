@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.3 · Fabric · Client-side · English and Russian**
 
-Current version: **0.1.0-alpha.7**
+Current version: **0.1.0-alpha.8**
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -23,11 +23,13 @@ Current version: **0.1.0-alpha.7**
 
 Command suggestions draw above the chat panel and receive clicks and scrolling before the history underneath. An explicitly opened message context menu stays on top.
 
+Clickable message components use Minecraft's native chat actions, including server command buttons, suggested commands, dialogs, custom actions, links and clipboard copying. Hit detection follows the actual rendered glyphs and scale. Clicking a suggested command in history context opens the chat input.
+
 ## Installation
 
 1. Use **Minecraft Java 26.3**, **Java 25**, and **Fabric Loader 0.20.1 or newer**.
 2. Install **Fabric API for Minecraft 26.3**. The tested version is **0.165.0+26.3**.
-3. Place `chat-chronicle-0.1.0-alpha.7.jar` in the game profile's `mods` folder.
+3. Place `chat-chronicle-0.1.0-alpha.8.jar` in the game profile's `mods` folder.
 4. Open chat and choose **History / Search** or **Settings**.
 
 Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
@@ -105,7 +107,7 @@ On Linux or macOS:
 ./gradlew runClient
 ```
 
-The installable JAR is written to `build/libs/chat-chronicle-0.1.0-alpha.7.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+The installable JAR is written to `build/libs/chat-chronicle-0.1.0-alpha.8.jar`. The `-sources.jar` file contains source code and is not the mod to install.
 
 Pinned versions: Minecraft **26.3**, Loader **0.20.1**, Fabric API **0.165.0+26.3**, Loom **1.19.3**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**.
 

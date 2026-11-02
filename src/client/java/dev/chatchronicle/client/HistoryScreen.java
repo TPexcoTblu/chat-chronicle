@@ -1,6 +1,7 @@
 package dev.chatchronicle.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.chatchronicle.client.mixin.ChatScreenAccess;
 
 import dev.chatchronicle.core.Messages;
 
@@ -173,14 +174,27 @@ public final class HistoryScreen extends Screen {
             } else if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && view.searchMode) showContext(hit.line().row());
             else if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
                 view.selection.clear();
-                Style style = MessageView.styleAt(hit.line().text(), (int) event.x() - view.x - 4);
-                if (style != null && style.getClickEvent() != null) clickStyle(style);
+                Style style = view.clickableStyle(hit, event.x(), event.y());
+                if (style != null) clickStyle(style);
             }
             return true;
         }
         return super.mouseClicked(event, doubleClick);
     }
-    public static void clickStyle(Style style) { defaultHandleClickEvent(style.getClickEvent(), Minecraft.getInstance(), Minecraft.getInstance().gui.screen()); }
+    public static boolean clickStyle(Style style) {
+        if (style == null || style.getClickEvent() == null) return false;
+        var client = Minecraft.getInstance(); var screen = client.gui.screen();
+        if (screen instanceof ChatScreen chat) return ((ChatScreenAccess) chat).chronicle$handleComponentClicked(style, false);
+        var click = style.getClickEvent();
+        if (click instanceof ClickEvent.SuggestCommand suggestion) {
+            client.gui.setScreen(new ChatScreen(suggestion.command(), false));
+            return true;
+        }
+        if (client.player != null) defaultHandleGameClickEvent(click, client, screen);
+        else if (click instanceof ClickEvent.OpenUrl || click instanceof ClickEvent.OpenFile || click instanceof ClickEvent.CopyToClipboard) defaultHandleClickEvent(click, client, screen);
+        else return false;
+        return true;
+    }
     @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
         if (menu != null) return menu.scroll(vertical);
         if (x < view.x) dayScroll = Math.clamp(dayScroll - (int) vertical * 3, 0, Math.max(0, days.size() - 1));

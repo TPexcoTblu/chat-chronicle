@@ -5,6 +5,7 @@ import dev.chatchronicle.core.Messages;
 import dev.chatchronicle.core.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.ActiveTextCollector;
 import net.minecraft.network.chat.*;
 import net.minecraft.util.FormattedCharSequence;
 import java.time.*;
@@ -41,7 +42,7 @@ public final class MessageView {
     private boolean newerAvailable;
     private long presentationRevision = -1;
     public record Line(ArchiveStore.Row row, FormattedCharSequence text, long count, boolean timestamp) {}
-    public record Hit(Line line, int y) {}
+    public record Hit(Line line, int y, double originX) {}
 
     public void refresh() { expandedContext = false; load(true); }
     public void reload() {
@@ -180,14 +181,15 @@ public final class MessageView {
             graphics.fill(x, y, x + width, y + step, alpha(selected ? 0x594821 : hover ? 0x26313D : 0, backgroundOpacity * fade));
             if (selected) graphics.outline(x, y, width, step, alpha(0xD9AE51, fade));
             graphics.pose().pushMatrix();
-            graphics.pose().translate((float) (x + (1 - entrance) * 6 * scale), (float) y).scale((float) scale);
+            double originX = x + (1 - entrance) * 6 * scale;
+            graphics.pose().translate((float) originX, (float) y).scale((float) scale);
             graphics.text(Minecraft.getInstance().font, line.text(), 4, 0, alpha(line.row() == null ? 0x8BADC5 : 0xFFFFFF, textOpacity * fade));
             if (hover && fade > .99) {
-                Style style = styleAt(line.text(), textPosition(mouseX));
+                Style style = styleAt(line.text(), (int) ((mouseX - originX) / scale) - 4);
                 if (style != null && style.getHoverEvent() != null) graphics.textRenderer().accept(4, 0, line.text());
             }
             graphics.pose().popMatrix();
-            hits.add(new Hit(line, y));
+            hits.add(new Hit(line, y, originX));
             if (hover && line.row() != null) {
                 ChatRecord record = line.row().message();
                 if (line.timestamp() && mouseX < x + 85 * scale) graphics.setTooltipForNextFrame(Component.literal(
@@ -206,6 +208,13 @@ public final class MessageView {
         return null;
     }
     public int lineHeight() { return Math.max(1, (int) Math.ceil(9 * (1 + lineSpacing) * scale)); }
+    public Style clickableStyle(Hit hit, double mouseX, double mouseY) {
+        var finder = new ActiveTextCollector.ClickableStyleFinder(Minecraft.getInstance().font, (int) mouseX, (int) mouseY);
+        var pose = new org.joml.Matrix3x2f().translate((float) hit.originX(), (float) hit.y()).scale((float) scale);
+        finder.defaultParameters(finder.defaultParameters().withPose(pose));
+        finder.accept(4, 0, hit.line().text());
+        return finder.result();
+    }
     public int textPosition(double mouseX) { return (int) ((mouseX - x) / scale) - 4; }
     private static int alpha(int rgb, double opacity) { return ((int) Math.round(Math.clamp(opacity, 0, 1) * 255) << 24) | (rgb & 0xFFFFFF); }
     public static Style styleAt(FormattedCharSequence text, int position) {

@@ -91,8 +91,8 @@ public final class ChronicleOverlay {
         }
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             live.selection.clear();
-            Style style = MessageView.styleAt(hit.line().text(), live.textPosition(event.x()));
-            if (style != null && style.getClickEvent() != null) HistoryScreen.clickStyle(style);
+            Style style = live.clickableStyle(hit, event.x(), event.y());
+            if (style != null) HistoryScreen.clickStyle(style);
             return true;
         }
         return false;

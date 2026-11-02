@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.3 · Fabric · Client-side · English / Russian**
 
-Current build: **0.1.0-alpha.7**
+Current build: **0.1.0-alpha.8**
 
 ---
 
@@ -93,7 +93,13 @@ Optional day/message limits are disabled by default. Enabling or changing them r
 - Server-requested removal of signed messages is not yet synchronised with the permanent archive.
 - The mod does not yet add a separate persistent history of typed commands.
 
-## What's new in alpha.7
+## What's new in alpha.8
+
+- Fixed clickable chat components, including server command buttons, suggested commands, dialogs, custom actions, links and clipboard actions.
+- Click detection follows the text's actual glyph layout, scale, wrapped line and animation position.
+- Suggested commands clicked in history context open the chat input.
+
+### Fixed in alpha.7
 
 - Command and input suggestions now draw **over the chat panel**.
 - Clicking or scrolling suggestions takes priority over the history underneath. An explicitly opened message menu remains on top.

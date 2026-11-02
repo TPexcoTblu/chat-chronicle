@@ -20,6 +20,33 @@ class ArchiveFeaturesTest {
     private void removeIndex() throws Exception {
         for (String name : List.of("index.sqlite", "index.sqlite-shm", "index.sqlite-wal")) Files.deleteIfExists(root.resolve(name));
     }
+    @Test void repeatedFlushDayChangesBulkDeletionAndCompactionAllowFurtherWritesAndRecovery() throws Exception {
+        var expected = new ArrayList<ChatRecord>();
+        try (var store = open()) {
+            for (String day : List.of("2026-11-01", "2026-11-02", "2026-11-01", "2026-11-03")) {
+                for (int i = 0; i < 3; i++) {
+                    ChatRecord message = record(day, "entry " + expected.size()); expected.add(message);
+                    get(store.append(message));
+                    assertEquals(expected.size(), get(store.page(null, Long.MAX_VALUE, 100)).rows().size());
+                }
+            }
+            var rows = get(store.page(null, Long.MAX_VALUE, 100)).rows();
+            var deleted = List.of(rows.get(0), rows.get(4), rows.get(8));
+            assertEquals(3, get(store.deleteSelected(deleted)));
+            expected.removeIf(message -> deleted.stream().anyMatch(row -> row.message().equals(message)));
+            assertEquals(expected.size(), get(store.compactArchive()));
+            for (String day : List.of("2026-11-03", "2026-11-01")) {
+                var next = record(day, "after compact " + day); expected.add(next);
+                get(store.append(next)); get(store.days());
+            }
+        }
+        removeIndex();
+        try (var store = open()) {
+            var recovered = get(store.page(null, Long.MAX_VALUE, 100)).rows().stream().map(ArchiveStore.Row::message).toList();
+            assertEquals(expected.size(), recovered.size());
+            assertEquals(new HashSet<>(expected), new HashSet<>(recovered));
+        }
+    }
     @Test void thousandDuplicatesAreOneIndexedRowAndAnInterveningMessageStartsAnotherRun() throws Exception {
         String day = "2026-11-02";
         try (var store = open()) {

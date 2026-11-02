@@ -2,6 +2,6 @@
   "required": true,
   "package": "dev.chatchronicle.client.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": ["ChatComponentMixin", "ChatScreenMixin", "ChatScreenAccess"],
+  "client": ["ChatComponentMixin", "ChatScreenMixin", "ChatScreenAccess", "GuiTextRenderStateAccess", "FontManagerMixin"],
   "injectors": { "defaultRequire": 1 }
 }

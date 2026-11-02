@@ -41,7 +41,13 @@ public final class MessageView {
     private int request;
     private boolean newerAvailable;
     private long presentationRevision = -1;
-    public record Line(ArchiveStore.Row row, FormattedCharSequence text, long count, boolean timestamp) {}
+    private long resourceRevision = -1;
+    private boolean cachedSearchMode;
+    private record LayoutKey(ChatRecord message, long count) {}
+    private final BoundedCache<LayoutKey, List<CachedChatText>> wrappedMessages = new BoundedCache<>(500);
+    public record Line(ArchiveStore.Row row, CachedChatText cached, long count, boolean timestamp) {
+        public FormattedCharSequence text() { return cached.sequence; }
+    }
     public record Hit(Line line, int y, double originX) {}
 
     public void refresh() { expandedContext = false; load(true); }
@@ -125,10 +131,17 @@ public final class MessageView {
     }
     private boolean compactArchive() { return ChatChronicle.get().config.compactDuplicates && !expandedContext; }
     private void rebuild() {
-        if (presentationRevision != ChatChronicle.get().presentationRevision) { layoutDirty = true; presentationRevision = ChatChronicle.get().presentationRevision; }
+        var mod = ChatChronicle.get();
+        if (presentationRevision != mod.presentationRevision || resourceRevision != CachedChatText.resourceRevision
+                || cachedWidth != width || cachedScale != scale || cachedSearchMode != searchMode) {
+            wrappedMessages.clear(); layoutDirty = true;
+            presentationRevision = mod.presentationRevision; resourceRevision = CachedChatText.resourceRevision;
+            cachedSearchMode = searchMode;
+        }
         if (!layoutDirty && cachedWidth == width && cachedScale == scale) return;
         lines.clear(); layoutDirty = false; cachedWidth = width; cachedScale = scale;
-        var font = Minecraft.getInstance().font; var mod = ChatChronicle.get();
+        wrappedMessages.resize(mod.config.cacheMessages);
+        var font = Minecraft.getInstance().font;
         DateTimeFormatter formatter;
         try { formatter = DateTimeFormatter.ofPattern(mod.config.timestampPattern, Messages.locale()).withZone(ZoneId.systemDefault()); }
         catch (RuntimeException ex) { formatter = DateTimeFormatter.ofPattern("HH:mm:ss", Messages.locale()).withZone(ZoneId.systemDefault()); }
@@ -145,17 +158,25 @@ public final class MessageView {
                     count++; i++;
                 }
             }
-            if (previousDay != null && !previousDay.equals(record.day())) lines.add(new Line(null, Component.literal("── " + previousDay + " ──").getVisualOrderText(), 0, false));
+            if (previousDay != null && !previousDay.equals(record.day())) lines.add(dayLine(previousDay));
             previousDay = record.day();
-            var component = Component.empty();
-            if (searchMode) component.append(Component.literal(record.day() + " ").withStyle(net.minecraft.ChatFormatting.GRAY));
-            if (mod.config.showTimestamps) component.append(Component.literal("[" + formatter.format(Instant.ofEpochMilli(record.time())) + "] ").withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
-            component.append(ChatChronicle.decode(record));
-            if (count > 1) component.append(Component.literal(" ×" + count).withStyle(Style.EMPTY.withColor(mod.config.duplicateCounterColor)));
-            var wrapped = font.split(component, Math.max(20, (int) (width / scale) - 10));
+            var key = new LayoutKey(record, count);
+            DateTimeFormatter timeFormatter = formatter;
+            long repeats = count;
+            var wrapped = wrappedMessages.get(key, ignored -> {
+                var component = Component.empty();
+                if (searchMode) component.append(Component.literal(record.day() + " ").withStyle(net.minecraft.ChatFormatting.GRAY));
+                if (mod.config.showTimestamps) component.append(Component.literal("[" + timeFormatter.format(Instant.ofEpochMilli(record.time())) + "] ").withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
+                component.append(ChatChronicle.decode(record));
+                if (repeats > 1) component.append(Component.literal(" ×" + repeats).withStyle(Style.EMPTY.withColor(mod.config.duplicateCounterColor)));
+                return font.split(component, Math.max(20, (int) (width / scale) - 10)).stream().map(CachedChatText::new).toList();
+            });
             for (int j = wrapped.size() - 1; j >= 0; j--) lines.add(new Line(row, wrapped.get(j), count, j == 0));
         }
-        if (previousDay != null) lines.add(new Line(null, Component.literal("── " + previousDay + " ──").getVisualOrderText(), 0, false));
+        if (previousDay != null) lines.add(dayLine(previousDay));
+    }
+    private static Line dayLine(String day) {
+        return new Line(null, new CachedChatText(Component.literal("── " + day + " ──").getVisualOrderText()), 0, false);
     }
     public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         rebuild(); hits.clear();
@@ -183,7 +204,7 @@ public final class MessageView {
             graphics.pose().pushMatrix();
             double originX = x + (1 - entrance) * 6 * scale;
             graphics.pose().translate((float) originX, (float) y).scale((float) scale);
-            graphics.text(Minecraft.getInstance().font, line.text(), 4, 0, alpha(line.row() == null ? 0x8BADC5 : 0xFFFFFF, textOpacity * fade));
+            line.cached().draw(graphics, alpha(line.row() == null ? 0x8BADC5 : 0xFFFFFF, textOpacity * fade));
             if (hover && fade > .99) {
                 Style style = styleAt(line.text(), (int) ((mouseX - originX) / scale) - 4);
                 if (style != null && style.getHoverEvent() != null) graphics.textRenderer().accept(4, 0, line.text());

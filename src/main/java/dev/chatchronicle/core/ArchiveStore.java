@@ -29,6 +29,8 @@ public final class ArchiveStore implements AutoCloseable {
     private FileChannel lockChannel;
     private FileLock archiveLock;
     private final Map<Path, RandomAccessFile> dirty = new HashMap<>();
+    private Path openJournalPath;
+    private RandomAccessFile openJournal;
     private final List<ChatRecord> pending = new ArrayList<>();
     private volatile UiMessage status = new UiMessage("archive.loading");
     public String statusText() { return status.text(); }
@@ -158,7 +160,11 @@ public final class ArchiveStore implements AutoCloseable {
 
     public CompletableFuture<Void> append(ChatRecord record) {
         if (!record.valid()) return CompletableFuture.failedFuture(new IllegalArgumentException(Messages.text("archive.invalidRecord")));
-        return submit(() -> { requireReady(); appendEvent(record.day(), JSON.toJson(record)); pending.add(record); return null; });
+        return submit(() -> {
+            requireReady();
+            if (openJournalPath != null && !openJournalPath.equals(journal(record.day()))) flush();
+            appendEvent(record.day(), JSON.toJson(record)); pending.add(record); return null;
+        });
     }
     private Path journal(String day) {
         LocalDate date = LocalDate.parse(day);
@@ -170,14 +176,25 @@ public final class ArchiveStore implements AutoCloseable {
         if (payload.length > MAX_LINE - 32) throw new IOException(Messages.text("archive.tooLarge"));
         RandomAccessFile file = dirty.get(path);
         if (file == null) {
-            Files.createDirectories(path.getParent());
-            file = new RandomAccessFile(path.toFile(), "rw");
-            long length = file.length();
-            if (length > 0) {
-                file.seek(length - 1);
-                if (file.read() != '\n') { file.seek(length); file.write('\n'); }
+            // Dirty tombstones must keep their checkpoint until deletion is committed.
+            if (!path.equals(openJournalPath)) {
+                if (openJournal != null && !dirty.containsKey(openJournalPath)) openJournal.close();
+                openJournal = null; openJournalPath = null;
             }
-            file.seek(file.length()); dirty.put(path, file);
+            if (openJournal != null) {
+                file = openJournal;
+            } else {
+                Files.createDirectories(path.getParent());
+                file = new RandomAccessFile(path.toFile(), "rw");
+                openJournal = file; openJournalPath = path;
+                long length = file.length();
+                if (length > 0) {
+                    file.seek(length - 1);
+                    if (file.read() != '\n') { file.seek(length); file.write('\n'); }
+                }
+                file.seek(file.length());
+            }
+            dirty.put(path, file);
         }
         CRC32 crc = new CRC32(); crc.update(payload);
         byte[] header = (Long.toHexString(crc.getValue()) + "\t").getBytes(StandardCharsets.US_ASCII);
@@ -197,10 +214,14 @@ public final class ArchiveStore implements AutoCloseable {
             db.commit(); pending.clear();
         } catch (Exception ex) { db.rollback(); resetTail(); throw ex; }
         finally { db.setAutoCommit(true); }
-        for (RandomAccessFile file : dirty.values()) file.close();
+        for (RandomAccessFile file : dirty.values()) if (file != openJournal) file.close();
         dirty.clear();
         dataRevision++;
         writeActiveMarker();
+    }
+    private void closeJournal() throws IOException {
+        if (openJournal != null) openJournal.close();
+        openJournal = null; openJournalPath = null;
     }
     private void index(ChatRecord record) throws SQLException {
         boolean sameRun = !tailDeleted && record.sameContent(tailRecord);
@@ -496,7 +517,7 @@ public final class ArchiveStore implements AutoCloseable {
     /** Explicit maintenance: rewrite live records atomically; reclaim deleted SQLite rows. */
     public CompletableFuture<Long> compactArchive() {
         return submit(() -> {
-            requireReady(); flush(); long rewritten = 0;
+            requireReady(); flush(); closeJournal(); long rewritten = 0;
             List<Path> journals;
             try (var paths = Files.walk(root)) { journals = paths.filter(p -> p.toString().endsWith(".journal")).sorted().toList(); }
             for (Path journal : journals) {
@@ -547,7 +568,7 @@ public final class ArchiveStore implements AutoCloseable {
         worker.execute(() -> {
             try { if (ready) { flush(); Files.deleteIfExists(root.resolve(".running")); } } catch (Exception ex) { fail(ex); }
             finally {
-                try { for (RandomAccessFile f : dirty.values()) f.close(); if (db != null) db.close(); }
+                try { for (RandomAccessFile file : dirty.values()) if (file != openJournal) file.close(); closeJournal(); if (db != null) db.close(); }
                 catch (Exception ex) { fail(ex); }
                 finally { try { if (archiveLock != null) archiveLock.release(); if (lockChannel != null) lockChannel.close(); } catch (Exception ex) { fail(ex); } }
             }

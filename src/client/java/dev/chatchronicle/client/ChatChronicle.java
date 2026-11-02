@@ -33,6 +33,8 @@ public final class ChatChronicle implements ClientModInitializer {
     private long seenMaintenance;
     private final SessionMarkers.Visits visits = new SessionMarkers.Visits();
     public final Map<String, Long> arrivals = new LinkedHashMap<>();
+    private final BoundedCache<ChatRecord, Component> decoded = new BoundedCache<>(500);
+    private long decodedResources = -1;
     public long lastActivityNanos = System.nanoTime();
     public void touch() { lastActivityNanos = System.nanoTime(); }
 
@@ -84,6 +86,7 @@ public final class ChatChronicle implements ClientModInitializer {
             ChatRecord record = ChatRecord.create(component.getString(), json,
                     sender == null ? null : sender[0], sender == null ? null : sender[1], source);
             acceptRecord(record);
+            decoded.put(record, component.copy());
         } catch (Exception ex) { LOG.error("Cannot serialize chat message", ex); }
     }
     private void acceptRecord(ChatRecord record) {
@@ -110,12 +113,21 @@ public final class ChatChronicle implements ClientModInitializer {
         while (recentGroups.size() > config.cacheMessages) recentGroups.removeLast();
     }
     public static Component decode(ChatRecord record) {
+        var mod = get();
+        if (mod.decodedResources != CachedChatText.resourceRevision) {
+            mod.decoded.clear(); mod.decodedResources = CachedChatText.resourceRevision;
+        }
+        mod.decoded.resize(mod.config.cacheMessages);
+        return mod.decoded.get(record, ChatChronicle::decodeUncached);
+    }
+    private static Component decodeUncached(ChatRecord record) {
         if (SessionMarkers.KIND.equals(record.kind())) return Component.literal(SessionMarkers.display(record)).withStyle(net.minecraft.ChatFormatting.DARK_AQUA);
         try { return ComponentSerialization.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(record.componentJson())).getOrThrow(); }
         catch (Exception ex) { return Component.literal(record.text()); }
     }
     public void saveConfig() {
         presentationRevision++;
+        decoded.clear(); decoded.resize(config.cacheMessages);
         try { config.save(configPath); } catch (Exception ex) { LOG.error("Cannot save settings", ex); }
     }
     public static ChatChronicle get() { return instance; }

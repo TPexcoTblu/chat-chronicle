@@ -1,5 +1,12 @@
 # Chat Chronicle changelog
 
+## 0.1.0-alpha.10
+
+- Cache decoded components and wrapped messages within the configured message-cache limit. Unchanged messages reuse their layout when new messages arrive.
+- Reuse prepared glyphs for unchanged lines and colors. Resource/font changes invalidate the cache; obfuscated text and player glyphs retain vanilla preparation. Scrolling, animation transforms, alpha, clipping and click data remain independent of cached glyphs.
+- Keep the journal handle open between flushes; close or replace it on day changes, compaction and shutdown. Preserve forced writes, deletion checkpoints and recovery.
+- Add regression coverage for cache eviction and archive writes across flushes, day changes, bulk deletion, compaction and index rebuilding.
+
 ## 0.1.0-alpha.9
 
 - Added a persistent duplicate-counter color setting: RGB hex input, nine clickable presets and a live preview in settings. Default remains gray (#AAAAAA).

@@ -2,9 +2,9 @@
 
 > Daily chat history, search with context, and clear markers for every visit.
 
-**Minecraft Java 26.3 · Fabric · Client-side · English and Russian**
+**Minecraft Java 26.x and 1.21.11 · Fabric / NeoForge / Quilt · Client-side · English and Russian**
 
-Current version: **0.1.0**
+Current development build: **0.2.0**. A short automated in-client smoke pass completed on Minecraft 26.3 with all three loaders; other game versions have build checks only. See [test scope and results](tools/smoke/REPORT.md). This is not a compatibility certification.
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -17,6 +17,7 @@ Current version: **0.1.0**
 - **Duplicate stacking.** Consecutive repeats display a counter, even when server-generated hover or click data changes. Every original record retains its own formatting and interaction data.
 - **Message actions.** Right-click to copy text, formatting, JSON, links, timestamps, sender details, and duplicate counts; prepare a reply, open context, hide a message, or delete it.
 - **Multiple selection.** Shift-click rows to copy, hide, or delete them together. New arrivals never silently expand a selection.
+- **Scrolling after hiding.** Hidden records do not consume visible page slots. Older unhidden messages are prefetched while the current reading position is preserved. Hiding is temporary for the running client and does not erase the archive.
 - **Customisable HUD.** Set width and focused/unfocused heights independently, or follow vanilla settings. Configure timestamps, reply templates, appearance animations, and idle fading.
 - **English and Russian localisation.** English is the default, independently of Minecraft's language. Change the language at the top of the mod's settings.
 - **Local storage and recovery.** Checksummed journals, a rebuildable search index, interrupted-run detection, and explicit archive compaction.
@@ -27,12 +28,14 @@ Clickable message components use Minecraft's native chat actions, including serv
 
 ## Installation
 
-1. Use **Minecraft Java 26.3**, **Java 25**, and **Fabric Loader 0.20.1 or newer**.
-2. Install **Fabric API for Minecraft 26.3**. The tested version is **0.165.0+26.3**.
-3. Place `chat-chronicle-0.1.0.jar` in the game profile's `mods` folder.
+1. Choose an exact Minecraft target: **26.1, 26.1.1, 26.1.2, 26.2, 26.3 or 1.21.11**. Future releases and snapshots are not included automatically.
+2. Install **Fabric**, **NeoForge** or **Quilt**, and choose the matching Chat Chronicle JAR. Use **Java 25 for 26.x**, **Java 21 for 1.21.11**. See [the build matrix](SUPPORT.md) for pinned loader versions, including beta loader requirements.
+3. Place one `chat-chronicle-LOADER-mcGAME-0.2.0.jar` in the game profile's `mods` folder.
 4. Open chat and choose **History / Search** or **Settings**.
 
 Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
+
+Starting with 0.2.0, **Fabric API, QSL and QFAPI are not required**. Quilt builds use Quilt Loader's Fabric entrypoint compatibility; they are separate artifacts with a Quilt Loader dependency. NeoForge uses a native client-only entrypoint.
 
 ## Controls
 
@@ -98,7 +101,7 @@ On Windows:
 ```powershell
 .\gradlew.bat build
 .\gradlew.bat test
-.\gradlew.bat runClient
+.\gradlew.bat :fabric-26.3:runClient '-Pgames=26.3' '-Ploaders=fabric'
 ```
 
 You can also run `build-mod.bat`, including from another working directory.
@@ -108,18 +111,18 @@ On Linux or macOS:
 ```sh
 ./gradlew build
 ./gradlew test
-./gradlew runClient
+./gradlew :fabric-26.3:runClient '-Pgames=26.3' '-Ploaders=fabric'
 ```
 
-The installable JAR is written to `build/libs/chat-chronicle-0.1.0.jar`. The `-sources.jar` file contains source code and is not the mod to install.
+The full build writes 18 installable JARs to `build/releases/GAME/LOADER/`. For one target, run `gradlew.bat build '-Pgames=26.3' '-Ploaders=neoforge'`. A module's own outputs are also available under `variants/GAME/LOADER/build/libs/`. The `-sources.jar` files contain source code and are not mods to install.
 
 `gradlew releaseCheck` runs the optional large-archive and forced-process-recovery checks. They are excluded from normal builds and use temporary data. On Windows, use `gradlew.bat releaseCheck`; on Linux/macOS, use `./gradlew releaseCheck`.
 
-Pinned versions: Minecraft **26.3**, Loader **0.20.1**, Fabric API **0.165.0+26.3**, Loom **1.19.3**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**.
+Pinned toolchain: Loom **1.19.3**, ModDevGradle **2.0.148**, Gradle **9.8.2**, SQLite JDBC **3.51.3.0**, and RE2/J **1.8**. Per-game NeoForge versions are recorded in `gradle/targets.json`.
 
 ## Initial release and known limitations
 
-This is the **first public release**. Automated archive and regression checks pass, but visual verification across GUI scales, servers, and modpacks remains ongoing.
+The multiloader port is a **development build intended for beta testing**. Minecraft 26.3 passed short automated in-client checks on Fabric 0.20.1, NeoForge 26.3.0.101 and Quilt 0.31.0-beta.5: local-world entry, message capture, duplicate stacking, history paging, right-click actions, bulk hiding and scrolling, search/context, and archive reopen. Other Minecraft versions have compilation and packaging checks only; fixes will follow bug reports. Full manual visual testing, multiplayer compatibility and performance comparisons remain outside this pass.
 
 - Compatibility with other mods that replace the chat UI has not been established.
 - Regex and short-query scans yield between batches so queued writes and scheduled saves can proceed. Initial index rebuilding and manual compaction still occupy the archive worker; avoid running compaction while actively chatting.

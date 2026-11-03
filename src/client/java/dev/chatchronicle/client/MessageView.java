@@ -65,9 +65,12 @@ public final class MessageView {
         cancel(); cancelled = new AtomicBoolean(); int token = ++request;
         loading = true; notice = rows.isEmpty() ? new UiMessage("view.loading") : UiMessage.EMPTY;
         long before = reset || rows.isEmpty() ? Long.MAX_VALUE : rows.getLast().firstSequence();
-        var future = searchMode ? mod.archive.search(query, before, mod.config.pageSize, cancelled)
-                : compactArchive() ? mod.archive.groupedPage(day, before, mod.config.pageSize)
-                : mod.archive.page(day, before, mod.config.pageSize);
+        boolean searching = searchMode, compact = compactArchive();
+        String requestedDay = day; SearchQuery requestedQuery = query; AtomicBoolean cancellation = cancelled;
+        var future = VisibleArchivePage.load(before, mod.config.pageSize, false, mod.hidden, cancellation,
+                (cursor, limit) -> searching ? mod.archive.search(requestedQuery, cursor, limit, cancellation)
+                        : compact ? mod.archive.groupedPage(requestedDay, cursor, limit)
+                        : mod.archive.page(requestedDay, cursor, limit));
         future.whenComplete((page, error) -> ChatChronicle.onClient(() -> {
             if (token != request) return;
             loading = false;
@@ -75,13 +78,11 @@ public final class MessageView {
             notice = UiMessage.EMPTY; more = page.more();
             if (reset) { rows = new ArrayList<>(page.rows()); scroll = 0; newerAvailable = false; }
             else {
+                rows.removeIf(row -> mod.hidden.contains(row.message().id()));
                 rows.addAll(page.rows());
                 if (rows.size() > mod.config.cacheMessages) {
                     int drop = rows.size() - mod.config.cacheMessages;
-                    Set<String> ids = new HashSet<>();
-                    rows.subList(0, drop).forEach(row -> ids.add(row.message().id()));
-                    int removedLines = (int) lines.stream().filter(line -> line.row() != null && ids.contains(line.row().message().id())).count();
-                    rows.subList(0, drop).clear(); scroll = Math.max(0, scroll - removedLines); newerAvailable = true;
+                    rows.subList(0, drop).clear(); newerAvailable = true;
                 }
             }
             invalidate();
@@ -115,21 +116,51 @@ public final class MessageView {
         if (loading || rows.isEmpty()) return;
         loading = true; int token = ++request;
         ChatChronicle mod = ChatChronicle.get();
-        var future = compactArchive() ? mod.archive.groupedAfter(day, rows.getFirst().lastSequence(), mod.config.pageSize)
-                : mod.archive.after(day, rows.getFirst().sequence(), mod.config.pageSize);
+        boolean compact = compactArchive(); String requestedDay = day;
+        var future = VisibleArchivePage.load(rows.getFirst().lastSequence(), mod.config.pageSize, true, mod.hidden, cancelled,
+                (cursor, limit) -> compact ? mod.archive.groupedAfter(requestedDay, cursor, limit)
+                        : mod.archive.after(requestedDay, cursor, limit));
         future.whenComplete((result, error) -> ChatChronicle.onClient(() -> {
             if (token != request) return;
             loading = false;
             if (error != null) { notice = new UiMessage("error.detail", rootCause(error).getMessage()); return; }
             newerAvailable = result.more();
             if (!result.rows().isEmpty()) {
+                ScrollAnchor anchor = anchor(true);
                 List<ArchiveStore.Row> next = new ArrayList<>(result.rows()); next.addAll(rows); rows = next;
                 if (rows.size() > mod.config.cacheMessages) { rows.subList(mod.config.cacheMessages, rows.size()).clear(); more = true; }
-                invalidate(); scroll = 0;
+                invalidate(); rebuild(); restore(anchor);
             }
         }));
     }
     private boolean compactArchive() { return ChatChronicle.get().config.compactDuplicates && !expandedContext; }
+    private record ScrollAnchor(String id, int wrappedLine, int screenLine) {}
+    private ScrollAnchor anchor(boolean includeBottom) {
+        if (scroll == 0 && !includeBottom) return null;
+        for (int i = scroll; i < lines.size(); i++) {
+            var row = lines.get(i).row();
+            if (row == null || ChatChronicle.get().hidden.contains(row.message().id())) continue;
+            int first = i;
+            while (first > 0 && lines.get(first - 1).row() != null
+                    && lines.get(first - 1).row().message().id().equals(row.message().id())) first--;
+            return new ScrollAnchor(row.message().id(), i - first, i - scroll);
+        }
+        return null;
+    }
+    private void restore(ScrollAnchor anchor) {
+        if (anchor != null) for (int i = 0; i < lines.size(); i++) {
+            var row = lines.get(i).row();
+            if (row != null && row.message().id().equals(anchor.id())) {
+                int line = i;
+                for (int j = 0; j < anchor.wrappedLine() && line + 1 < lines.size()
+                        && lines.get(line + 1).row() != null
+                        && lines.get(line + 1).row().message().id().equals(anchor.id()); j++) line++;
+                scroll = Math.max(0, line - anchor.screenLine()); break;
+            }
+        }
+        int visible = Math.max(1, (bottom - top) / lineHeight());
+        scroll = Math.clamp(scroll, 0, Math.max(0, lines.size() - visible));
+    }
     private void rebuild() {
         var mod = ChatChronicle.get();
         if (presentationRevision != mod.presentationRevision || resourceRevision != CachedChatText.resourceRevision
@@ -139,6 +170,7 @@ public final class MessageView {
             cachedSearchMode = searchMode;
         }
         if (!layoutDirty && cachedWidth == width && cachedScale == scale) return;
+        ScrollAnchor anchor = anchor(false);
         lines.clear(); layoutDirty = false; cachedWidth = width; cachedScale = scale;
         wrappedMessages.resize(mod.config.cacheMessages);
         var font = Minecraft.getInstance().font;
@@ -173,13 +205,17 @@ public final class MessageView {
             });
             for (int j = wrapped.size() - 1; j >= 0; j--) lines.add(new Line(row, wrapped.get(j), count, j == 0));
         }
-        if (previousDay != null) lines.add(dayLine(previousDay));
+        if (previousDay != null && !more) lines.add(dayLine(previousDay));
+        restore(anchor);
     }
     private static Line dayLine(String day) {
         return new Line(null, new CachedChatText(Component.literal("── " + day + " ──").getVisualOrderText()), 0, false);
     }
     public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         rebuild(); hits.clear();
+        // Prefetch before the visible edge, including after a large selection was hidden.
+        if (fadeAfterMillis == 0 && more && !loading && notice.isEmpty()
+                && scroll + Math.max(1, (bottom - top) / lineHeight()) + 12 >= lines.size()) load(false);
         graphics.enableScissor(x, top, x + width, bottom);
         int step = lineHeight(), y = bottom - step;
         for (int i = scroll; i < lines.size() && y >= top; i++) {

@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "dev.chatchronicle.smoke.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["SmokeTickMixin"],
+  "injectors": {"defaultRequire": 1}
+}

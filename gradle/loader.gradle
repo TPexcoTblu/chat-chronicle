@@ -1,0 +1,247 @@
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
+
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath 'org.ow2.asm:asm-tree:9.9' }
+}
+
+def split = project.name.indexOf('-')
+def loader = project.name.substring(0, split)
+def game = project.name.substring(split + 1)
+def target = new JsonSlurper().parse(rootProject.file('gradle/targets.json'))[game]
+def legacy = game == '1.21.11'
+version = rootProject.version
+group = rootProject.group
+apply plugin: loader == 'neoforge' ? 'net.neoforged.moddev' : legacy ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.quiltmc.org/repository/release' }
+}
+base { archivesName = "chat-chronicle-${loader}-mc${game}" }
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+    withSourcesJar()
+}
+tasks.withType(JavaCompile).configureEach { options.release = target.java as int; options.encoding = 'UTF-8' }
+
+def generatedJava = layout.buildDirectory.dir('generated/client')
+def generatedResources = layout.buildDirectory.dir('generated/metadata')
+def prepareClient = tasks.register('prepareClient', Sync) {
+    inputs.property 'minecraftTarget', game
+    from(rootProject.file('src/client/java'))
+    from(rootProject.file("platforms/${loader == 'neoforge' ? 'neoforge' : 'fabric'}/java"))
+    // Version-specific replacements live in source control and override shared classes.
+    from(rootProject.file("platforms/minecraft/${game}/java"))
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    into generatedJava
+    doLast {
+        fileTree(generatedJava).matching { include '**/*.java' }.each { file ->
+            def source = file.text
+            if (legacy || game.startsWith('26.1')) source = source
+                    .replace('.gui.screen()', '.screen')
+                    .replace('.gui.setScreen(', '.setScreen(')
+                    .replace('mc.gui.hud.isHidden()', 'mc.options.hideGui')
+            if (legacy) source = source.replace('GuiGraphicsExtractor', 'GuiGraphics')
+                    .replace('extractRenderState', 'render')
+                    .replace('graphics.text(', 'graphics.drawString(')
+                    .replace('graphics.outline(', 'graphics.renderOutline(')
+                    .replace('graphics.centeredText(', 'graphics.drawCenteredString(')
+                    .replace('guiRenderState.addText(', 'guiRenderState.submitText(')
+                    .replace('net.minecraft.client.renderer.state.gui.', 'net.minecraft.client.gui.render.state.')
+            file.text = source
+        }
+    }
+}
+sourceSets.main.java.srcDirs = [rootProject.file('src/main/java'), generatedJava]
+sourceSets.main.resources.srcDirs = [rootProject.file('src/main/resources'), generatedResources]
+tasks.named('compileJava') { dependsOn prepareClient }
+
+if (loader == 'neoforge') {
+    neoForge {
+        enable { version = target.neoforge; disableRecompilation = true }
+        accessTransformers.from(rootProject.file("platforms/minecraft/${legacy ? '1.21.11' : '26.3'}/accesstransformer.cfg"))
+        runs { client { client(); gameDirectory = project.file('run') } }
+        mods { chatchronicle { sourceSet sourceSets.main } }
+    }
+    dependencies {
+        jarJar(implementation('org.xerial:sqlite-jdbc')) { version { strictly '[3.51.3.0,3.51.4)'; prefer '3.51.3.0' } }
+        jarJar(implementation('com.google.re2j:re2j')) { version { strictly '[1.8,1.9)'; prefer '1.8' } }
+    }
+} else {
+    dependencies {
+        minecraft "com.mojang:minecraft:${game}"
+        if (legacy) mappings loom.officialMojangMappings()
+        compileOnly 'net.fabricmc:sponge-mixin:0.17.5+mixin.0.8.7'
+        if (loader == 'quilt') {
+            implementation "org.quiltmc:quilt-loader:${legacy ? '0.30.2' : '0.31.0-beta.5'}"
+        }
+        else implementation 'net.fabricmc:fabric-loader:0.20.1'
+        implementation include('org.xerial:sqlite-jdbc:3.51.3.0')
+        implementation include('com.google.re2j:re2j:1.8')
+    }
+    loom {
+        mods { chatchronicle { sourceSet sourceSets.main } }
+        if (legacy) mixin { useLegacyMixinAp = true; defaultRefmapName = 'chatchronicle.refmap.json' }
+        accessWidenerPath = rootProject.file("platforms/minecraft/${legacy ? '1.21.11' : '26.3'}/chatchronicle.accesswidener")
+    }
+}
+
+def metadata = tasks.register('generateMetadata') {
+    inputs.property 'game', game; inputs.property 'loader', loader; inputs.property 'version', project.version
+    inputs.file rootProject.file('src/main/resources/chatchronicle.client.mixins.json')
+    inputs.file rootProject.file('src/main/resources/fabric.mod.json')
+    inputs.file rootProject.file('gradle/targets.json')
+    outputs.dir generatedResources
+    doLast {
+        def out = generatedResources.get().asFile; out.mkdirs()
+        def mixins = new JsonSlurper().parse(rootProject.file('src/main/resources/chatchronicle.client.mixins.json'))
+        mixins.compatibilityLevel = legacy ? 'JAVA_21' : 'JAVA_25'
+        mixins.client += ['ClientLifecycleMixin', 'ChatListenerMixin']
+        if (legacy && loader != 'neoforge') mixins.refmap = 'chatchronicle.refmap.json'
+        new File(out, 'chatchronicle.mixins.json').text = JsonOutput.prettyPrint(JsonOutput.toJson(mixins))
+        if (loader == 'neoforge') {
+            def meta = new File(out, 'META-INF/neoforge.mods.toml'); meta.parentFile.mkdirs()
+            meta.text = """modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-only"
+issueTrackerURL="https://github.com/TPexcoTblu/chat-chronicle/issues"
+[[mods]]
+modId="chatchronicle"
+version="${project.version}"
+displayName="Chat Chronicle"
+authors="TPexcoTblu"
+logoFile="assets/chatchronicle/icon.png"
+displayURL="https://github.com/TPexcoTblu/chat-chronicle"
+description='''Daily chat history, indexed search and message context.'''
+[[mixins]]
+config="chatchronicle.mixins.json"
+[[dependencies.chatchronicle]]
+modId="minecraft"
+type="required"
+versionRange="[${game}]"
+side="CLIENT"
+[[dependencies.chatchronicle]]
+modId="neoforge"
+type="required"
+versionRange="[${target.neoforge},)"
+side="CLIENT"
+"""
+        } else {
+            def meta = new JsonSlurper().parse(rootProject.file('src/main/resources/fabric.mod.json'))
+            meta.version = project.version.toString()
+            meta.entrypoints.client = ['dev.chatchronicle.platform.FabricEntrypoint']
+            meta.mixins = ['chatchronicle.mixins.json']
+            meta.accessWidener = 'chatchronicle.accesswidener'
+            meta.depends = [minecraft: game, java: ">=${target.java}"]
+            meta.depends[loader == 'quilt' ? 'quilt_loader' : 'fabricloader'] = loader == 'quilt'
+                    ? (legacy ? '>=0.30.2' : '>=0.31.0-beta.5') : '>=0.20.1'
+            new File(out, 'fabric.mod.json').text = JsonOutput.prettyPrint(JsonOutput.toJson(meta))
+        }
+    }
+}
+// Keep generated loader metadata; exclude the original templates only from their source directory.
+sourceSets.main.resources.setSrcDirs([generatedResources])
+tasks.named('processResources') {
+    dependsOn metadata
+    from(rootProject.file('src/main/resources')) { exclude 'fabric.mod.json', 'chatchronicle.client.mixins.json' }
+    if (loader == 'neoforge') from(rootProject.file("platforms/minecraft/${legacy ? '1.21.11' : '26.3'}/accesstransformer.cfg")) { into 'META-INF' }
+    else from(rootProject.file("platforms/minecraft/${legacy ? '1.21.11' : '26.3'}/chatchronicle.accesswidener"))
+}
+tasks.withType(Jar).configureEach {
+    from(rootProject.file('LICENSE')); from(rootProject.file('NOTICE'))
+    from(rootProject.file('licenses')) { into 'licenses' }
+}
+tasks.named('sourcesJar') { dependsOn prepareClient, metadata }
+
+// Read target bytecode without loading/starting Minecraft. Catch missing injection sites
+// and changed callback signatures before a variant is offered for manual smoke testing.
+def verifyHooks = tasks.register('verifyHooks') {
+    dependsOn tasks.named('compileJava')
+    inputs.files(sourceSets.main.output.classesDirs, sourceSets.main.compileClasspath)
+    doLast {
+        def urls = (sourceSets.main.output.classesDirs.files + sourceSets.main.compileClasspath.files)
+                .collect { it.toURI().toURL() } as URL[]
+        def resources = new URLClassLoader(urls, (ClassLoader) null)
+        def read = { String name ->
+            def stream = resources.getResourceAsStream(name + '.class')
+            if (stream == null) throw new GradleException("Missing Mixin target ${name}")
+            def node = new org.objectweb.asm.tree.ClassNode()
+            stream.withCloseable { new org.objectweb.asm.ClassReader(it).accept(node, 0) }
+            node
+        }
+        def values = { annotation ->
+            def result = [:]
+            if (annotation.values != null) for (int i = 0; i < annotation.values.size(); i += 2)
+                result[annotation.values[i]] = annotation.values[i + 1]
+            result
+        }
+        int checked = 0
+        try {
+            sourceSets.main.output.classesDirs.asFileTree.matching { include '**/client/mixin/*.class' }.each { file ->
+                def mixin = new org.objectweb.asm.tree.ClassNode()
+                new org.objectweb.asm.ClassReader(file.bytes).accept(mixin, 0)
+                def annotations = (mixin.visibleAnnotations ?: []) + (mixin.invisibleAnnotations ?: [])
+                def marker = annotations.find { it.desc == 'Lorg/spongepowered/asm/mixin/Mixin;' }
+                if (marker == null) return
+                def targetType = values(marker).value[0]
+                def targetClass = read(targetType.internalName)
+                mixin.methods.each { handler ->
+                    def tags = (handler.visibleAnnotations ?: []) + (handler.invisibleAnnotations ?: [])
+                    tags.each { tag ->
+                        def data = values(tag)
+                        if (tag.desc == 'Lorg/spongepowered/asm/mixin/injection/Inject;') {
+                            data.method.each { String selector ->
+                                def targets = targetClass.methods.findAll { it.name + it.desc == selector || it.name == selector }
+                                if (targets.isEmpty()) throw new GradleException("${mixin.name}: missing ${targetClass.name}.${selector}")
+                                def args = org.objectweb.asm.Type.getArgumentTypes(handler.desc).toList()
+                                args.removeLast() // CallbackInfo / CallbackInfoReturnable
+                                targets.each { method ->
+                                    if (!args.isEmpty() && args != org.objectweb.asm.Type.getArgumentTypes(method.desc).toList())
+                                        throw new GradleException("${mixin.name}: changed callback signature for ${method.name}${method.desc}")
+                                    (data.at ?: []).each { at ->
+                                        def site = values(at)
+                                        if (site.value == 'INVOKE') {
+                                            boolean found = method.instructions.any { instruction ->
+                                                instruction instanceof org.objectweb.asm.tree.MethodInsnNode &&
+                                                        "L${instruction.owner};${instruction.name}${instruction.desc}" == site.target
+                                            }
+                                            if (!found) throw new GradleException("${mixin.name}: missing invocation ${site.target}")
+                                        }
+                                    }
+                                }
+                                checked++
+                            }
+                        } else if (tag.desc == 'Lorg/spongepowered/asm/mixin/gen/Accessor;') {
+                            if (!targetClass.fields.any { it.name == data.value }) throw new GradleException("Missing accessor ${data.value}")
+                            checked++
+                        } else if (tag.desc == 'Lorg/spongepowered/asm/mixin/gen/Invoker;') {
+                            if (!targetClass.methods.any { it.name == data.value && it.desc == handler.desc })
+                                throw new GradleException("Missing invoker ${data.value}${handler.desc}")
+                            checked++
+                        }
+                    }
+                }
+            }
+        } finally { resources.close() }
+        logger.lifecycle("${project.name}: ${checked} Mixin targets/signatures checked without launching the game")
+    }
+}
+tasks.named('check') { dependsOn verifyHooks }
+
+// Optional companion mod for isolated runtime acceptance; never included in release JARs.
+if (loader == 'neoforge' && game == '26.3') {
+    sourceSets {
+        smoke {
+            java.srcDir rootProject.file('tools/smoke/java')
+            resources.srcDir rootProject.file('tools/smoke/resources')
+            compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+        }
+    }
+    tasks.register('smokeHarnessJar', Jar) {
+        dependsOn tasks.named('smokeClasses')
+        archiveFileName = 'chat-chronicle-smoke-harness.jar'
+        destinationDirectory = rootProject.layout.projectDirectory.dir('.tools/smoke/harness')
+        from sourceSets.smoke.output
+    }
+}

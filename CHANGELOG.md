@@ -1,5 +1,21 @@
 # Chat Chronicle changelog
 
+## 0.2.0 — multiloader development build
+
+- Add separate Fabric, NeoForge and Quilt artifacts for 26.1, 26.1.1, 26.1.2, 26.2, 26.3 and 1.21.11.
+- Share the archive, search, configuration and UI code; adapt the 1.21.11 chat/rendering API and the 26.1 screen API at build time.
+- Use loader-independent tick, sender-capture and shutdown hooks. Fabric API, QSL and QFAPI are no longer dependencies.
+- Add native client-only NeoForge initialization and loader-specific nested-library packaging. Quilt uses its supported Fabric entrypoint compatibility.
+- Produce exact-version metadata, Java 21 bytecode for 1.21.11 and Java 25 bytecode for 26.x. Remap 1.21.11 Fabric/Quilt builds to intermediary; keep NeoForge in its official runtime namespace.
+- Add a reproducible build matrix and targeted build options. Short automated in-client smoke checks passed on 26.3 with all three loaders, including archive reopen; other versions have not been played through. See `tools/smoke/REPORT.md` for the exact scope and test-helper corrections.
+
+## 0.1.1
+
+- Fill archive pages with visible messages, skipping hidden records across bounded background queries. Large hidden selections no longer leave sparse pages that require repeated wheel movements to refill.
+- Prefetch near the visible edge and after hiding messages; preserve the reading position when hidden rows or cached pages change.
+- Keep the current message in place when loading newer cached history. Show the oldest day's divider only after reaching the end of that history.
+- Add regression checks for hidden-page traversal in both directions, cursor continuity, cancellation and an entirely hidden archive. Hiding does not delete archive records.
+
 ## 0.1.0
 
 First public release for Minecraft Java 26.3 / Fabric, with English and Russian UI.

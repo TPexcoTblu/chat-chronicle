@@ -1,5 +1,7 @@
 # Chat Chronicle — release workflow
 
+For the 0.2.0 matrix, run `gradlew.bat build`, then `python tools/verify_matrix.py` (Python 3.9+). Installable files are under `build/releases/GAME/LOADER/`. Publish each file with its exact game version and loader on the same project. Matching source is `build/distributions/chat-chronicle-0.2.0-source.zip`; never label untested future 26.x releases compatible. The three 26.3 in-game smoke tests are pending and must be recorded separately from successful compilation.
+
 Keep these files current for every version:
 
 1. Update `gradle.properties` and build the matching JAR.

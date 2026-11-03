@@ -1,0 +1,9 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GPL-3.0-only"
+[[mods]]
+modId="chatchronicle_smoke"
+version="1.0.0"
+displayName="Chat Chronicle Isolated Smoke Harness"
+[[mixins]]
+config="chatchronicle-smoke.mixins.json"

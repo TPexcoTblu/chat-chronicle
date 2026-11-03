@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "chatchronicle_smoke",
+  "version": "1.0.0",
+  "name": "Chat Chronicle Isolated Smoke Harness",
+  "environment": "client",
+  "mixins": ["chatchronicle-smoke.mixins.json"],
+  "depends": {"minecraft": "26.3", "java": ">=25", "chatchronicle": "*"}
+}

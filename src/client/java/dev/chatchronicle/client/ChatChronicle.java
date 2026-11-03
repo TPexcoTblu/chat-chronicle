@@ -3,12 +3,6 @@ package dev.chatchronicle.client;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import dev.chatchronicle.core.*;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.*;
 import org.slf4j.Logger;
@@ -16,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.util.*;
 
-public final class ChatChronicle implements ClientModInitializer {
+public final class ChatChronicle  {
     public static final Logger LOG = LoggerFactory.getLogger("Chat Chronicle");
     public static ChatChronicle instance;
     public ChronicleConfig config;
@@ -38,15 +32,31 @@ public final class ChatChronicle implements ClientModInitializer {
     public long lastActivityNanos = System.nanoTime();
     public void touch() { lastActivityNanos = System.nanoTime(); }
 
-    @Override public void onInitializeClient() {
-        instance = this;
-        configPath = FabricLoader.getInstance().getConfigDir().resolve("chat-chronicle.json");
-        config = ChronicleConfig.load(configPath);
-        Messages.setLanguage(config.language);
-        archive = new ArchiveStore(FabricLoader.getInstance().getGameDir().resolve("chat-chronicle"),
-                config.saveIntervalSeconds, LOG::error);
-        archive.configureRetention(new RetentionPolicy(config.retentionDays, config.maxArchiveMessages));
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+    public static void initialize(Path gameDir, Path configDir) {
+        if (instance != null) return;
+        ChatChronicle mod = new ChatChronicle();
+        instance = mod;
+        mod.configPath = configDir.resolve("chat-chronicle.json");
+        mod.config = ChronicleConfig.load(mod.configPath);
+        Messages.setLanguage(mod.config.language);
+        mod.archive = new ArchiveStore(gameDir.resolve("chat-chronicle"), mod.config.saveIntervalSeconds, LOG::error);
+        mod.archive.configureRetention(new RetentionPolicy(mod.config.retentionDays, mod.config.maxArchiveMessages));
+        LOG.info("Chat Chronicle initialized: daily archive enabled");
+    }
+    private Object connection;
+    public void tick(Minecraft client) {
+        Object current = client.level == null ? null : client.getConnection();
+        if (connection != current) {
+            if (connection != null) visits.leave(connection);
+            connection = current;
+            if (current != null && visits.join(current) && config.showSessionMarkers) {
+                boolean world = client.hasSingleplayerServer();
+                String location = world && client.getSingleplayerServer() != null
+                        ? client.getSingleplayerServer().getWorldData().getLevelName()
+                        : client.getCurrentServer() == null ? null : client.getCurrentServer().name;
+                acceptRecord(SessionMarkers.create(world, client.getUser().getName(), location, System.currentTimeMillis()));
+            }
+        }
             if (!stopping && seenMaintenance != archive.maintenanceRevision) {
                 seenMaintenance = archive.maintenanceRevision;
                 Set<String> beforeRequest = new HashSet<>(); recent.forEach(record -> beforeRequest.add(record.id()));
@@ -59,24 +69,16 @@ public final class ChatChronicle implements ClientModInitializer {
                     presentationRevision++; revision++;
                 }));
             }
-        });
-        ClientReceiveMessageEvents.CHAT.register((text, signed, sender, type, time) -> {
-            if (signed != null && signed.signature() != null && sender != null) {
-                senders.put(signed.signature(), new String[]{sender.name(), sender.id().toString()});
-                while (senders.size() > 500) senders.remove(senders.keySet().iterator().next());
-            }
-        });
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            if (!visits.join(handler.getConnection()) || !config.showSessionMarkers) return;
-            boolean world = client.hasSingleplayerServer();
-            String location = world && client.getSingleplayerServer() != null
-                    ? client.getSingleplayerServer().getWorldData().getLevelName()
-                    : client.getCurrentServer() == null ? null : client.getCurrentServer().name;
-            acceptRecord(SessionMarkers.create(world, client.getUser().getName(), location, System.currentTimeMillis()));
-        });
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> visits.leave(handler.getConnection()));
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> { stopping = true; archive.close(); });
-        LOG.info("Chat Chronicle initialized: Minecraft 26.3, daily archive enabled");
+    }
+    public void sender(MessageSignature signature, String name, String uuid) {
+        if (signature == null) return;
+        senders.put(signature, new String[]{name, uuid});
+        while (senders.size() > 500) senders.remove(senders.keySet().iterator().next());
+    }
+    public void stop() {
+        if (stopping) return;
+        stopping = true;
+        archive.close();
     }
     public void capture(Component component, MessageSignature signature, String source) {
         if (stopping) return;

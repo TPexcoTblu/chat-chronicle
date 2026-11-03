@@ -1,4 +1,21 @@
 pluginManagement {
-    repositories { maven { url = 'https://maven.fabricmc.net/' }; mavenCentral(); gradlePluginPortal() }
+    repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://maven.neoforged.net/releases' }
+        mavenCentral(); gradlePluginPortal()
+    }
 }
 rootProject.name = 'chat-chronicle'
+def targets = new groovy.json.JsonSlurper().parse(file('gradle/targets.json'))
+def selectedGames = providers.gradleProperty('games').getOrElse(targets.keySet().join(',')).split(',') as Set
+def selectedLoaders = providers.gradleProperty('loaders').getOrElse('fabric,neoforge,quilt').split(',') as Set
+if (!targets.keySet().containsAll(selectedGames)) throw new GradleException("Unknown Minecraft target: ${selectedGames}")
+if (!['fabric', 'neoforge', 'quilt'].containsAll(selectedLoaders)) throw new GradleException("Unknown loader: ${selectedLoaders}")
+targets.keySet().each { game ->
+    ['fabric', 'neoforge', 'quilt'].each { loader ->
+        if (!selectedGames.contains(game) || !selectedLoaders.contains(loader)) return
+        def id = "${loader}-${game}"
+        include id
+        project(":${id}").projectDir = file("variants/${game}/${loader}")
+    }
+}

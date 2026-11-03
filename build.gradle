@@ -1,58 +1,56 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'java'
+    id 'net.fabricmc.fabric-loom' version '1.19.3' apply false
+    id 'net.fabricmc.fabric-loom-remap' version '1.19.3' apply false
+    id 'net.neoforged.moddev' version '2.0.148' apply false
 }
 repositories { mavenCentral() }
 configurations { bundledSources }
-loom {
-    splitEnvironmentSourceSets()
-    mods { chatchronicle { sourceSet sourceSets.main; sourceSet sourceSets.client } }
-}
 dependencies {
-    minecraft "com.mojang:minecraft:${minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
-    implementation include('org.xerial:sqlite-jdbc:3.51.3.0')
-    implementation include('com.google.re2j:re2j:1.8')
+    implementation 'com.google.code.gson:gson:2.13.2'
+    implementation 'org.xerial:sqlite-jdbc:3.51.3.0'
+    implementation 'com.google.re2j:re2j:1.8'
     bundledSources 'org.xerial:sqlite-jdbc:3.51.3.0:sources'
     bundledSources 'com.google.re2j:re2j:1.8:sources'
     testImplementation platform('org.junit:junit-bom:5.12.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
-processResources {
-    inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') { expand version: project.version }
-}
-tasks.withType(JavaCompile).configureEach { options.release = 25; options.encoding = 'UTF-8' }
-java {
-    toolchain { languageVersion = JavaLanguageVersion.of(25) }
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+sourceSets.main.resources.exclude 'fabric.mod.json', 'chatchronicle.client.mixins.json'
+base { archivesName = 'chat-chronicle-core' }
 test { useJUnitPlatform { excludeTags 'release' } }
-tasks.withType(Jar).configureEach { from('LICENSE', 'NOTICE'); from('licenses') { into 'licenses' } }
-tasks.register('sourceArchive', Zip) {
-    archiveBaseName = 'chat-chronicle'
-    archiveVersion = project.version
-    archiveClassifier = 'source'
-    destinationDirectory = layout.buildDirectory.dir('distributions')
-    from(projectDir) {
-        include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties', 'build-mod.bat'
-        include 'LICENSE', 'NOTICE', 'README.md', 'README.ru.md', 'CHANGELOG.md', 'TESTING.md', 'RELEASING.md'
-        include 'licenses/**'
-        include 'tools/**'
-    }
-    from(configurations.bundledSources) { into 'third-party/sources' }
-}
-tasks.named('assemble') { dependsOn 'sourceArchive' }
 tasks.register('releaseCheck', Test) {
-    description = 'Isolated large-archive and real process-crash acceptance checks; excluded from normal builds.'
-    group = 'verification'
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform { includeTags 'release' }
     maxHeapSize = '1G'
     systemProperty 'chronicle.test.classpath', sourceSets.test.runtimeClasspath.asPath
-    testLogging { events 'passed', 'failed'; showStandardStreams = true }
 }
+tasks.register('sourceArchive', Zip) {
+    archiveFileName = "chat-chronicle-${project.version}-source.zip"
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    ['src', 'platforms', 'gradle', 'tools', 'licenses'].each { dir -> from(file(dir)) { into dir } }
+    from(files('gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties', 'build-mod.bat',
+            'LICENSE', 'NOTICE', 'README.md', 'README.ru.md', 'CHANGELOG.md', 'TESTING.md', 'RELEASING.md', 'SUPPORT.md', 'PROGRESS.md'))
+    // Include every target's build script even when -Pgames/-Ploaders selects a partial build.
+    new groovy.json.JsonSlurper().parse(file('gradle/targets.json')).keySet().each { game ->
+        ['fabric', 'neoforge', 'quilt'].each { loader ->
+            from(file("variants/${game}/${loader}/build.gradle")) { into "variants/${game}/${loader}" }
+        }
+    }
+    from(configurations.bundledSources) { into 'third-party/sources' }
+}
+tasks.register('collectReleases', Sync) {
+    into layout.buildDirectory.dir('releases')
+    subprojects.each { child ->
+        dependsOn "${child.path}:build"
+        from(child.layout.buildDirectory.dir('libs')) {
+            include '*.jar'; exclude '*-sources.jar', '*-dev.jar'
+            into "${child.name.substring(child.name.indexOf('-') + 1)}/${child.name.substring(0, child.name.indexOf('-'))}"
+        }
+    }
+}
+tasks.register('buildAll') { group = 'build'; dependsOn 'test', 'sourceArchive', 'collectReleases' }
+tasks.named('build') { dependsOn 'buildAll' }

@@ -1,6 +1,37 @@
 # Chat Chronicle — release workflow
 
-For the 0.2.0 matrix, run `gradlew.bat build`, then `python tools/verify_matrix.py` (Python 3.9+). Installable files are under `build/releases/GAME/LOADER/`. Publish each file with its exact game version and loader on the same project. Matching source is `build/distributions/chat-chronicle-0.2.0-source.zip`; never label untested future 26.x releases compatible. The three 26.3 in-game smoke tests are pending and must be recorded separately from successful compilation.
+Run `gradlew.bat build`, then `python tools/verify_matrix.py` (Python 3.9+). Installable files are under `build/releases/GAME/LOADER/`. Publish each file with its exact game version and loader on the same project. The matching source archive is `build/distributions/chat-chronicle-VERSION-source.zip`. Record game testing separately from successful compilation.
+
+## Publish the matrix to Modrinth
+
+The publisher reads the version from `gradle.properties` and the game targets from `gradle/targets.json`. It requires the full verified matrix and checks each JAR's size and SHA-256 before making any requests. Every game and loader pair gets its own Modrinth version number, such as `0.2.1+mc26.3.fabric`. The JAR's internal mod version remains `0.2.1`.
+
+Create `.modrinth.local.json` in the repository root. Git ignores this file and the source archive excludes it. Use the eight-character project ID and its current slug. Paste your [Modrinth personal access token](https://modrinth.com/settings/pats) with the `VERSION_CREATE` scope into the local file, or leave `token` empty and set `MODRINTH_TOKEN` in the environment.
+
+```json
+{
+  "project_id": "AABBCCDD",
+  "expected_slug": "your-project-slug",
+  "token": ""
+}
+```
+
+```powershell
+# Offline preview. The default channel is beta.
+python tools/publish_modrinth.py
+
+# Read the configured project and compare the matrix with its published versions.
+python tools/publish_modrinth.py --check-remote
+
+# Publish after reviewing the preview and making matching source available.
+python tools/publish_modrinth.py --publish --channel beta --changelog .tools/release-notes.md --source-url 'https://github.com/OWNER/REPO/releases/download/TAG/chat-chronicle-VERSION-source.zip'
+```
+
+Use the same channel for preview and publication. Supply a Markdown file containing the English notes for this release and replace the example source URL with the actual matching source. The publisher uses the [Modrinth version API](https://docs.modrinth.com/api/operations/createversion/) and prints each resulting version link.
+
+Run one publisher at a time for a project. If an upload stops halfway through, run the same command again. The publisher skips identical, listed uploads with matching game version, loader and channel. It reports any conflict before uploading further files. For a private or unpublished project, the token must also be able to see the project and its existing versions. HTTP 404 during the remote check can mean that access is missing or that the ID is incorrect.
+
+## Release checklist
 
 Keep these files current for every version:
 

@@ -10,4 +10,5 @@ run/
 .env
 .env.*
 !.env.example
+.modrinth.local.json
 /PLAN.md

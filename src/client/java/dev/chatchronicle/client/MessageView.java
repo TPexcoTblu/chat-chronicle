@@ -100,13 +100,13 @@ public final class MessageView {
             highlighted = row.message().id(); notice = new UiMessage("view.context", row.message().day()); invalidate();
             rebuild();
             for (int i = 0; i < lines.size(); i++) if (lines.get(i).row() != null && lines.get(i).row().message().id().equals(highlighted)) {
-                scroll = Math.max(0, i - Math.max(2, (bottom - top) / (lineHeight() * 2))); break;
+                scroll = Math.max(0, i - Math.max(2, visibleLines() / 2)); break;
             }
         }));
     }
     public boolean scroll(double amount) {
         rebuild();
-        int visible = Math.max(1, (bottom - top) / lineHeight());
+        int visible = visibleLines();
         scroll = Math.clamp(scroll + (int) Math.signum(amount) * Math.max(1, (int) Math.abs(amount) * 3), 0, Math.max(0, lines.size() - visible));
         if (amount > 0 && scroll + visible + 12 >= lines.size() && more && !loading) load(false);
         if (amount < 0 && scroll == 0 && newerAvailable && !searchMode) loadNewer();
@@ -158,7 +158,7 @@ public final class MessageView {
                 scroll = Math.max(0, line - anchor.screenLine()); break;
             }
         }
-        int visible = Math.max(1, (bottom - top) / lineHeight());
+        int visible = visibleLines();
         scroll = Math.clamp(scroll, 0, Math.max(0, lines.size() - visible));
     }
     private void rebuild() {
@@ -213,12 +213,15 @@ public final class MessageView {
     }
     public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         rebuild(); hits.clear();
+        int visible = visibleLines();
+        scroll = Math.min(scroll, Math.max(0, lines.size() - visible));
         // Prefetch before the visible edge, including after a large selection was hidden.
         if (fadeAfterMillis == 0 && more && !loading && notice.isEmpty()
-                && scroll + Math.max(1, (bottom - top) / lineHeight()) + 12 >= lines.size()) load(false);
+                && scroll + visible + 12 >= lines.size()) load(false);
         graphics.enableScissor(x, top, x + width, bottom);
         int step = lineHeight(), y = bottom - step;
-        for (int i = scroll; i < lines.size() && y >= top; i++) {
+        int firstMessageY = contentTop();
+        for (int i = scroll; i < lines.size() && y >= firstMessageY; i++) {
             Line line = lines.get(i);
             if (line.row() == null && fadeAfterMillis > 0) continue;
             double fade = viewOpacity, entrance = 1;
@@ -254,16 +257,21 @@ public final class MessageView {
             }
             y -= step;
         }
-        graphics.disableScissor();
         if (!notice.isEmpty()) graphics.text(Minecraft.getInstance().font, notice.text(), x + 4, top + 2, 0xFFFFCC88);
         if (emptyHint && rows.isEmpty() && !loading && notice.isEmpty()) graphics.text(Minecraft.getInstance().font, Messages.text("view.empty"), x + 4, top + 16, 0xFFAAAAAA);
         if (!selection.isEmpty()) graphics.text(Minecraft.getInstance().font, Messages.text("selection.badge", selection.size()), x + 4, top + (notice.isEmpty() ? 2 : 14), 0xFFFFDB8C);
+        graphics.disableScissor();
     }
     public Hit hit(double mouseX, double mouseY) {
-        if (mouseX < x || mouseX >= x + width || mouseY < top || mouseY >= bottom) return null;
+        if (mouseX < x || mouseX >= x + width || mouseY < contentTop() || mouseY >= bottom) return null;
         for (Hit hit : hits) if (hit.line().row() != null && mouseY >= hit.y() && mouseY < hit.y() + lineHeight()) return hit;
         return null;
     }
+    private int contentTop() {
+        int headerRows = (notice.isEmpty() ? 0 : 1) + (selection.isEmpty() ? 0 : 1);
+        return top + 12 * headerRows;
+    }
+    private int visibleLines() { return Math.max(1, (bottom - contentTop()) / lineHeight()); }
     public int lineHeight() { return Math.max(1, (int) Math.ceil(9 * (1 + lineSpacing) * scale)); }
     public Style clickableStyle(Hit hit, double mouseX, double mouseY) {
         var finder = new ActiveTextCollector.ClickableStyleFinder(Minecraft.getInstance().font, (int) mouseX, (int) mouseY);

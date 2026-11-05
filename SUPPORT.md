@@ -1,6 +1,6 @@
 # Chat Chronicle 0.2.0 build matrix
 
-These are **development builds**. Minecraft 26.3 completed a short automated in-client smoke scenario on Fabric, NeoForge and Quilt on 2026-11-03. Other game versions have compilation/packaging checks only. This is not full manual visual or modpack compatibility testing; see `tools/smoke/REPORT.md` for scope and test-helper failures.
+Minecraft 26.3 completed a short automated in-client smoke scenario on Fabric, NeoForge and Quilt on 2026-11-03. Other game versions have compilation and packaging checks. See `TESTING.md` for the 0.2.1 checks and `tools/smoke/REPORT.md` for the 0.2.0 results.
 
 Completed: 18 compiled/packaged artifacts, 35 shared-core tests, and 19 Mixin target/signature checks per variant without starting Minecraft. The bytecode checks include INVOKE injection sites, but do not execute the loader or establish runtime/modpack compatibility.
 

@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.x and 1.21.11 · Fabric / NeoForge / Quilt · Client-side · English and Russian**
 
-Current beta: **0.2.1-beta.1**. Archive searches now run independently of journal writes. See [the changelog](CHANGELOG.md) and [testing notes](TESTING.md).
+Current release: **0.2.1**. Archive searches run independently of journal writes, and selection labels have their own space above the messages. See [the changelog](CHANGELOG.md) and [testing notes](TESTING.md).
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -122,7 +122,7 @@ Pinned toolchain: Loom **1.19.3**, ModDevGradle **2.0.148**, Gradle **9.8.2**, S
 
 ## Initial release and known limitations
 
-The multiloader port is a **development build intended for beta testing**. Minecraft 26.3 passed short automated in-client checks on Fabric 0.20.1, NeoForge 26.3.0.101 and Quilt 0.31.0-beta.5: local-world entry, message capture, duplicate stacking, history paging, right-click actions, bulk hiding and scrolling, search/context, and archive reopen. Other Minecraft versions have compilation and packaging checks only; fixes will follow bug reports. Full manual visual testing, multiplayer compatibility and performance comparisons remain outside this pass.
+Minecraft 26.3 has short in-client smoke coverage on Fabric, NeoForge and Quilt from 0.2.0. The 0.2.1 release also has targeted interface checks on Fabric 26.3. The other Minecraft targets have compilation and packaging checks. See [the testing notes](TESTING.md) for the scenarios covered.
 
 - Compatibility with other mods that replace the chat UI has not been established.
 - Search reads from SQLite in bounded batches on a separate thread so queued writes and scheduled saves can proceed. Initial index rebuilding and manual compaction still occupy the archive worker.

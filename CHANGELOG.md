@@ -1,5 +1,10 @@
 # Chat Chronicle changelog
 
+## 0.2.1
+
+- Keep selection and status labels above the message rows so they stay readable in small windows.
+- Run archive searches on a separate read-only SQLite connection so long searches can overlap journal writes. Cancel outdated searches and recheck results when the archive changes.
+
 ## 0.2.1-beta.1
 
 - Run archive searches on a separate read-only SQLite connection so long regex searches can overlap journal writes.

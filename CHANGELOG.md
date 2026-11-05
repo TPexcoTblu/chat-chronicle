@@ -1,5 +1,11 @@
 # Chat Chronicle changelog
 
+## 0.2.1-beta.1
+
+- Run archive searches on a separate read-only SQLite connection so long regex searches can overlap journal writes.
+- Keep each search page bounded to records present when the search starts, and recheck results if records are deleted or the archive is compacted.
+- Cancel obsolete searches promptly and settle pending searches during shutdown. Existing archives keep their format.
+
 ## 0.2.0 — multiloader development build
 
 - Add separate Fabric, NeoForge and Quilt artifacts for 26.1, 26.1.1, 26.1.2, 26.2, 26.3 and 1.21.11.

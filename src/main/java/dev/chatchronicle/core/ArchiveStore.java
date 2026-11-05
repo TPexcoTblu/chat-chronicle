@@ -1,6 +1,8 @@
 package dev.chatchronicle.core;
 
 import com.google.gson.Gson;
+import org.sqlite.ProgressHandler;
+import org.sqlite.SQLiteConfig;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -19,9 +21,15 @@ public final class ArchiveStore implements AutoCloseable {
     private static final Gson JSON = new Gson();
     private static final int MAX_LINE = 4 * 1024 * 1024;
     private final Path root;
+    private volatile Thread archiveThread;
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "Chat Chronicle archive"); t.setDaemon(true); return t;
+        Thread t = new Thread(r, "Chat Chronicle archive"); t.setDaemon(true); archiveThread = t; return t;
     });
+    private final ThreadPoolExecutor searchWorker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(16), r -> {
+                Thread t = new Thread(r, "Chat Chronicle search"); t.setDaemon(true); return t;
+            });
+    private final Object lifecycle = new Object();
     private final Consumer<String> errors;
     private final AtomicBoolean closed = new AtomicBoolean();
     private Connection db;
@@ -44,6 +52,7 @@ public final class ArchiveStore implements AutoCloseable {
     private boolean tailDeleted;
     public volatile long dataRevision;
     public volatile long maintenanceRevision;
+    private volatile long searchEpoch;
     private RetentionPolicy retention = RetentionPolicy.UNLIMITED;
     private long lastRetention;
     public record RetentionResult(long removed, long remaining) {}
@@ -120,7 +129,7 @@ public final class ArchiveStore implements AutoCloseable {
         catch (AtomicMoveNotSupportedException ex) { Files.move(temp, root.resolve(".running"), StandardCopyOption.REPLACE_EXISTING); }
     }
     private void openIndex() throws SQLException {
-        db = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("index.sqlite").toAbsolutePath());
+        db = DriverManager.getConnection(indexUrl());
         try (Statement st = db.createStatement()) {
             st.execute("PRAGMA journal_mode=WAL"); st.execute("PRAGMA synchronous=NORMAL");
             st.execute("PRAGMA busy_timeout=5000"); st.execute("PRAGMA cache_size=-8192");
@@ -147,6 +156,7 @@ public final class ArchiveStore implements AutoCloseable {
         }
         prepareWriters();
     }
+    private String indexUrl() { return "jdbc:sqlite:" + root.resolve("index.sqlite").toAbsolutePath(); }
     private void prepareWriters() throws SQLException {
         insertMessage = db.prepareStatement("INSERT OR IGNORE INTO messages(id,day,time,text,json,run_id) VALUES(?,?,?,?,?,?) RETURNING seq");
         insertSearch = db.prepareStatement("INSERT INTO search(rowid,text) VALUES(?,?)");
@@ -391,62 +401,107 @@ public final class ArchiveStore implements AutoCloseable {
     }
     public CompletableFuture<Page> search(SearchQuery query, long before, int limit, AtomicBoolean cancelled) {
         var scan = new SearchScan(query, before, limit, cancelled);
-        scan.enqueue(); return scan.result;
+        if (!enqueue(() -> {
+            try {
+                if (scan.completeIfStopped()) return;
+                requireReady(); flush();
+                // Include everything committed at this point, but exclude later appends from every chunk.
+                try (Statement st = db.createStatement(); ResultSet rs = st.executeQuery("SELECT coalesce(max(seq),0) FROM messages")) {
+                    rs.next();
+                    long last = rs.getLong(1);
+                    if (last < Long.MAX_VALUE) scan.before = Math.min(before, last + 1);
+                }
+                scan.dispatch();
+            } catch (Exception ex) { scan.failSearch(ex); }
+        })) scan.result.completeExceptionally(archiveClosed());
+        return scan.result;
     }
-    /** Release the worker after each bounded scan so incoming writes and scheduled flushes can run. */
+    /** Separate read-only connection. Each chunk releases its SQLite snapshot before the next one. */
     private final class SearchScan implements Runnable {
         private static final int CHUNK = 256;
         private final SearchQuery query;
-        private final long before;
+        private long before;
         private final int limit;
         private final AtomicBoolean cancelled;
         private final CompletableFuture<Page> result = new CompletableFuture<>();
-        private final List<Row> rows = new ArrayList<>();
-        private com.google.re2j.Pattern pattern;
-        private String literal, sql;
-        private long cursor, maintenance;
+        private long epoch;
         SearchScan(SearchQuery query, long before, int limit, AtomicBoolean cancelled) {
-            this.query = query; this.before = before; this.cursor = before; this.limit = limit; this.cancelled = cancelled;
+            this.query = query; this.before = before; this.limit = limit; this.cancelled = cancelled;
         }
-        void enqueue() {
-            if (closed.get()) { result.completeExceptionally(new IllegalStateException(Messages.text("archive.closed"))); return; }
-            try { worker.execute(this); }
-            catch (RejectedExecutionException ex) { result.completeExceptionally(new IllegalStateException(Messages.text("archive.closed"))); }
+        boolean completeIfStopped() {
+            if (result.isDone()) return true;
+            if (closed.get()) { result.completeExceptionally(archiveClosed()); return true; }
+            if (cancelled.get()) { result.complete(new Page(List.of(), false, 0)); return true; }
+            return false;
+        }
+        void dispatch() {
+            if (completeIfStopped()) return;
+            epoch = searchEpoch;
+            for (Runnable pendingSearch : searchWorker.getQueue().toArray(Runnable[]::new)) {
+                SearchScan pending = (SearchScan) pendingSearch;
+                if ((pending.cancelled.get() || pending.result.isDone()) && searchWorker.remove(pending)) {
+                    pending.completeIfStopped();
+                }
+            }
+            try { searchWorker.execute(this); }
+            catch (RejectedExecutionException ex) {
+                result.completeExceptionally(new IllegalStateException(Messages.text("archive.searchBusy")));
+            }
+        }
+        private boolean obsolete() {
+            return closed.get() || cancelled.get() || result.isDone() || epoch != searchEpoch;
         }
         @Override public void run() {
-            if (result.isDone()) return;
-            if (closed.get()) { result.completeExceptionally(new IllegalStateException(Messages.text("archive.closed"))); return; }
-            try {
-                requireReady();
-                if (pattern == null) {
-                    flush(); pattern = query.compile(); literal = query.indexedLiteral(); maintenance = maintenanceRevision;
-                    // A rowid scan avoids sorting a whole date range again for every regex chunk.
-                    sql = "SELECT m.seq,m.json FROM messages m " + (literal == null ? "NOT INDEXED " : "JOIN search ON search.rowid=m.seq ") +
-                            "WHERE m.deleted=0 AND m.seq<? " + (literal == null ? "" : "AND search MATCH ? ") +
-                            (query.fromDay() == null ? "" : "AND m.day>=? ") + (query.toDay() == null ? "" : "AND m.day<=? ") + "ORDER BY m.seq DESC LIMIT ?";
-                }
-                if (maintenance != maintenanceRevision) {
-                    rows.clear(); cursor = before; maintenance = maintenanceRevision;
-                }
-                int scanned = 0;
-                if (!cancelled.get() && !result.isCancelled()) try (PreparedStatement st = db.prepareStatement(sql)) {
+            try { publish(obsolete() ? null : readPage(), null); }
+            catch (Exception ex) { publish(null, ex); }
+        }
+        private Page readPage() throws SQLException {
+            var pattern = query.compile();
+            String literal = query.indexedLiteral();
+            String sql = "SELECT m.seq,m.json FROM messages m " + (literal == null ? "NOT INDEXED " : "JOIN search ON search.rowid=m.seq ") +
+                    "WHERE m.deleted=0 AND m.seq<? " + (literal == null ? "" : "AND search MATCH ? ") +
+                    (query.fromDay() == null ? "" : "AND m.day>=? ") + (query.toDay() == null ? "" : "AND m.day<=? ") + "ORDER BY m.seq DESC LIMIT ?";
+            var config = new SQLiteConfig();
+            config.setReadOnly(true);
+            config.setBusyTimeout(5000);
+            List<Row> rows = new ArrayList<>();
+            long cursor = before;
+            try (Connection reader = DriverManager.getConnection(indexUrl(), config.toProperties());
+                 PreparedStatement st = reader.prepareStatement(sql)) {
+                ProgressHandler.setHandler(reader, 4096, new ProgressHandler() {
+                    @Override protected int progress() { return obsolete() ? 1 : 0; }
+                });
+                while (!obsolete()) {
+                    int scanned = 0;
                     int n = 1; st.setLong(n++, cursor);
                     if (literal != null) st.setString(n++, "\"" + literal.replace("\"", "\"\"") + "\"");
                     if (query.fromDay() != null) st.setString(n++, query.fromDay());
                     if (query.toDay() != null) st.setString(n++, query.toDay());
                     st.setInt(n, CHUNK);
                     try (ResultSet rs = st.executeQuery()) {
-                        while (!cancelled.get() && rs.next()) {
+                        while (!obsolete() && rs.next()) {
                             scanned++; cursor = rs.getLong(1);
                             Row row = parse(rs);
                             if (row != null && SessionMarkers.searchVariants(row.message()).stream().anyMatch(text -> pattern.matcher(text).find())) rows.add(row);
                             if (rows.size() > limit) break;
                         }
                     }
+                    if (scanned < CHUNK || rows.size() > limit) break;
                 }
-                if (cancelled.get() || scanned < CHUNK || rows.size() > limit) result.complete(makePage(rows, limit));
-                else enqueue();
-            } catch (Exception ex) { fail(ex); result.completeExceptionally(ex); }
+            }
+            return makePage(rows, limit);
+        }
+        void publish(Page page, Exception error) {
+            // Serialize publication with mutations. A changed epoch invalidates every partial result.
+            if (!enqueue(() -> {
+                if (completeIfStopped()) return;
+                if (epoch != searchEpoch) dispatch();
+                else if (error != null) failSearch(error);
+                else result.complete(page);
+            })) result.completeExceptionally(archiveClosed());
+        }
+        void failSearch(Exception ex) {
+            try { fail(ex); } finally { result.completeExceptionally(ex); }
         }
     }
     private Page makePage(List<Row> rows, int limit) {
@@ -461,13 +516,14 @@ public final class ArchiveStore implements AutoCloseable {
             return rs.getMetaData().getColumnCount() >= 5
                     ? new Row(rs.getLong(1), record, rs.getLong(3), rs.getLong(4), rs.getLong(5)) : new Row(rs.getLong(1), record);
         }
-        catch (RuntimeException ex) { damagedRecords++; return null; }
+        catch (RuntimeException ex) { synchronized (lifecycle) { damagedRecords++; } return null; }
     }
     private void addValid(List<Row> out, ResultSet rs) throws SQLException { Row row = parse(rs); if (row != null) out.add(row); }
 
     public CompletableFuture<Void> delete(Row row) {
         return submit(() -> {
             requireReady(); flush();
+            searchEpoch++;
             appendEvent(row.message().day(), "{\"delete\":\"" + row.message().id() + "\"}");
             for (RandomAccessFile file : dirty.values()) file.getChannel().force(true);
             // Replay-safe tombstone: preserved when the derived search index is rebuilt.
@@ -494,6 +550,7 @@ public final class ArchiveStore implements AutoCloseable {
         List<Row> snapshot = List.copyOf(selection);
         return submit(() -> {
             requireReady(); flush(); long removed = 0;
+            searchEpoch++;
             for (Row target : snapshot) {
                 long cursor = target.firstSequence() - 1;
                 while (true) {
@@ -527,6 +584,7 @@ public final class ArchiveStore implements AutoCloseable {
     private RetentionResult applyRetention() throws Exception {
         flush();
         if (!retention.enabled()) return new RetentionResult(0, messageCount());
+        searchEpoch++;
         String cutoffDay = retention.days() == 0 ? "0000-01-01" : LocalDate.now().minusDays(retention.days() - 1L).toString();
         long cutoffSequence = -1;
         if (retention.messages() > 0) try (PreparedStatement st = db.prepareStatement("SELECT seq FROM messages WHERE deleted=0 ORDER BY seq DESC LIMIT 1 OFFSET ?")) {
@@ -555,6 +613,7 @@ public final class ArchiveStore implements AutoCloseable {
     public CompletableFuture<Long> compactArchive() {
         return submit(() -> {
             requireReady(); flush(); closeJournal(); long rewritten = 0;
+            searchEpoch++;
             List<Path> journals;
             try (var paths = Files.walk(root)) { journals = paths.filter(p -> p.toString().endsWith(".journal")).sorted().toList(); }
             for (Path journal : journals) {
@@ -591,27 +650,39 @@ public final class ArchiveStore implements AutoCloseable {
     }
     private void requireReady() { if (!ready) throw new IllegalStateException(statusText()); }
     private void fail(Exception ex) { status = new UiMessage("archive.error", ex.getMessage()); errors.accept(statusText()); }
+    private static IllegalStateException archiveClosed() { return new IllegalStateException(Messages.text("archive.closed")); }
+    private boolean enqueue(Runnable task) {
+        synchronized (lifecycle) {
+            if (closed.get()) return false;
+            worker.execute(task);
+            return true;
+        }
+    }
     private <T> CompletableFuture<T> submit(Callable<T> operation) {
         CompletableFuture<T> future = new CompletableFuture<>();
-        if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException(Messages.text("archive.closed")));
-        worker.execute(() -> {
+        if (!enqueue(() -> {
             try { future.complete(operation.call()); }
             catch (Exception ex) { fail(ex); future.completeExceptionally(ex); }
-        });
+        })) future.completeExceptionally(archiveClosed());
         return future;
     }
     @Override public void close() {
-        if (!closed.compareAndSet(false, true)) return;
-        worker.execute(() -> {
-            try { if (ready) { flush(); Files.deleteIfExists(root.resolve(".running")); } } catch (Exception ex) { fail(ex); }
-            finally {
-                try { for (RandomAccessFile file : dirty.values()) if (file != openJournal) file.close(); closeJournal(); if (db != null) db.close(); }
-                catch (Exception ex) { fail(ex); }
-                finally { try { if (archiveLock != null) archiveLock.release(); if (lockChannel != null) lockChannel.close(); } catch (Exception ex) { fail(ex); } }
-            }
-        });
-        worker.shutdown();
+        synchronized (lifecycle) {
+            if (!closed.compareAndSet(false, true)) return;
+            worker.execute(this::closeArchive);
+            worker.shutdown();
+        }
+        if (Thread.currentThread() == archiveThread) return;
         try { if (!worker.awaitTermination(10, TimeUnit.SECONDS)) errors.accept("Archive shutdown timed out"); }
         catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
+    }
+    private void closeArchive() {
+        searchWorker.close();
+        try { if (ready) { flush(); Files.deleteIfExists(root.resolve(".running")); } } catch (Exception ex) { fail(ex); }
+        finally {
+            try { for (RandomAccessFile file : dirty.values()) if (file != openJournal) file.close(); closeJournal(); if (db != null) db.close(); }
+            catch (Exception ex) { fail(ex); }
+            finally { try { if (archiveLock != null) archiveLock.release(); if (lockChannel != null) lockChannel.close(); } catch (Exception ex) { fail(ex); } }
+        }
     }
 }

@@ -136,10 +136,16 @@ def main():
     mode.add_argument('--check-remote', action='store_true', help='compare with Modrinth without uploading')
     mode.add_argument('--publish', action='store_true', help='upload missing versions as listed versions')
     parser.add_argument('--channel', choices=('alpha', 'beta', 'release'), default='beta')
+    parser.add_argument('--game', help='limit this run to one Minecraft version')
+    parser.add_argument('--loader', choices=LOADERS, help='limit this run to one loader')
     parser.add_argument('--changelog', type=Path, help='Markdown release notes for this version')
     parser.add_argument('--source-url', help='HTTPS link to the matching source archive or tagged source')
     args = parser.parse_args()
-    plan = release_plan(args.channel)
+    plan = [item for item in release_plan(args.channel)
+            if (args.game is None or item['game_versions'] == [args.game])
+            and (args.loader is None or item['loaders'] == [args.loader])]
+    if not plan:
+        parser.error('no verified build matches the selected game and loader')
     if not (args.check_remote or args.publish):
         for item in plan:
             print(f'{item["version_number"]} [{args.channel}] {item["path"].relative_to(ROOT)}')

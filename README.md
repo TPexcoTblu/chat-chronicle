@@ -4,7 +4,7 @@
 
 **Minecraft Java 26.x and 1.21.11 · Fabric / NeoForge / Quilt · Client-side · English and Russian**
 
-Current development build: **0.2.0**. A short automated in-client smoke pass completed on Minecraft 26.3 with all three loaders; other game versions have build checks only. See [test scope and results](tools/smoke/REPORT.md). This is not a compatibility certification.
+Current beta: **0.2.1-beta.1**. Archive searches now run independently of journal writes. See [the changelog](CHANGELOG.md) and [testing notes](TESTING.md).
 
 [Installation](#installation) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md) · [Russian documentation](README.ru.md)
 
@@ -30,7 +30,7 @@ Clickable message components use Minecraft's native chat actions, including serv
 
 1. Choose an exact Minecraft target: **26.1, 26.1.1, 26.1.2, 26.2, 26.3 or 1.21.11**. Future releases and snapshots are not included automatically.
 2. Install **Fabric**, **NeoForge** or **Quilt**, and choose the matching Chat Chronicle JAR. Use **Java 25 for 26.x**, **Java 21 for 1.21.11**. See [the build matrix](SUPPORT.md) for pinned loader versions, including beta loader requirements.
-3. Place one `chat-chronicle-LOADER-mcGAME-0.2.0.jar` in the game profile's `mods` folder.
+3. Place one `chat-chronicle-LOADER-mcGAME-VERSION.jar` in the game profile's `mods` folder.
 4. Open chat and choose **History / Search** or **Settings**.
 
 Keep only one version of Chat Chronicle installed. The mod is client-side; no server installation is required. SQLite and RE2 are bundled in the mod JAR.
@@ -125,7 +125,7 @@ Pinned toolchain: Loom **1.19.3**, ModDevGradle **2.0.148**, Gradle **9.8.2**, S
 The multiloader port is a **development build intended for beta testing**. Minecraft 26.3 passed short automated in-client checks on Fabric 0.20.1, NeoForge 26.3.0.101 and Quilt 0.31.0-beta.5: local-world entry, message capture, duplicate stacking, history paging, right-click actions, bulk hiding and scrolling, search/context, and archive reopen. Other Minecraft versions have compilation and packaging checks only; fixes will follow bug reports. Full manual visual testing, multiplayer compatibility and performance comparisons remain outside this pass.
 
 - Compatibility with other mods that replace the chat UI has not been established.
-- Regex and short-query scans yield between batches so queued writes and scheduled saves can proceed. Initial index rebuilding and manual compaction still occupy the archive worker; avoid running compaction while actively chatting.
+- Search reads from SQLite in bounded batches on a separate thread so queued writes and scheduled saves can proceed. Initial index rebuilding and manual compaction still occupy the archive worker.
 - Regex uses RE2; backreferences and lookaround are unsupported. Short queries and regex queries can scan a large part of the archive.
 - Sender names and UUIDs are available only when provided by the server.
 - A normal right-click on a collapsed group targets its latest original message. Use context to select another repeat, or multi-select the group to act on its selection snapshot.

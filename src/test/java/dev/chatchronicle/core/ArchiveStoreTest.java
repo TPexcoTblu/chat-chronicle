@@ -75,6 +75,54 @@ class ArchiveStoreTest {
             assertEquals(chosen.sequence() + 1, after.rows().getLast().sequence());
         }
     }
+    @Test void parallelSearchKeepsItsUpperBoundaryAndRespectsCommittedDeletion() throws Exception {
+        var query = new SearchQuery("^target ", null, null, true, false, false);
+        try (var store = open()) {
+            ChatRecord oldest = record("2026-11-02", "target oldest");
+            await(store.append(oldest));
+            for (int i = 0; i < 6000; i++) store.append(record("2026-11-02", "filler " + i));
+            ChatRecord newest = record("2026-11-02", "target newest");
+            await(store.append(newest));
+            var target = await(store.page(null, Long.MAX_VALUE, 1)).rows().getFirst();
+            var scan = store.search(query, Long.MAX_VALUE, 100, new AtomicBoolean());
+            ChatRecord later = record("2026-11-02", "target later");
+            var written = store.append(later);
+            var deleted = store.delete(target);
+            var fresh = store.search(query, Long.MAX_VALUE, 100, new AtomicBoolean());
+            await(written);
+            await(deleted);
+            var original = await(scan).rows().stream().map(ArchiveStore.Row::message).toList();
+            assertTrue(original.equals(List.of(oldest)) || original.equals(List.of(newest, oldest)));
+            assertEquals(List.of(later, oldest), await(fresh).rows().stream().map(ArchiveStore.Row::message).toList());
+        }
+    }
+    @Test void rapidSearchCancellationAndShutdownSettleRequestsAndPersistQueuedWrite() throws Exception {
+        List<String> errors = new CopyOnWriteArrayList<>();
+        ChatRecord last = record("2026-11-02", "written during shutdown");
+        var slow = new SearchQuery("^missing$", null, null, true, false, false);
+        try (var store = new ArchiveStore(root, 60, errors::add)) {
+            for (int i = 0; i < 5000; i++) store.append(record("2026-11-02", "filler " + i));
+            await(store.page(null, Long.MAX_VALUE, 1));
+            List<CompletableFuture<ArchiveStore.Page>> obsolete = new ArrayList<>();
+            for (int i = 0; i < 40; i++) {
+                var token = new AtomicBoolean();
+                obsolete.add(store.search(slow, Long.MAX_VALUE, 100, token));
+                token.set(true);
+            }
+            for (var request : obsolete) assertTrue(await(request).rows().isEmpty());
+            assertEquals(1, find(store, new SearchQuery("filler 4999", null, null, false, false, false)).rows().size());
+            var active = store.search(slow, Long.MAX_VALUE, 100, new AtomicBoolean());
+            var written = store.append(last);
+            store.close();
+            await(written);
+            assertTrue(active.isDone(), "Closing the archive must settle the active search");
+        }
+        try (var store = new ArchiveStore(root, 60, errors::add)) {
+            assertEquals(last, await(store.page(null, Long.MAX_VALUE, 1)).rows().getFirst().message());
+            assertFalse(store.previousInterrupted);
+        }
+        assertTrue(errors.isEmpty(), errors.toString());
+    }
     @Test void corruptMiddleAndTruncatedTailDoNotHideHealthyRecordsAndCanAppendAfterRecovery() throws Exception {
         ChatRecord healthy = record("2026-11-02", "сохранено");
         try (var store = open()) { await(store.append(healthy)); }

@@ -29,6 +29,8 @@ python tools/publish_modrinth.py --publish --channel beta --changelog .tools/rel
 
 Use the same channel for preview and publication. Supply a Markdown file containing the English notes for this release and replace the example source URL with the actual matching source. The publisher uses the [Modrinth version API](https://docs.modrinth.com/api/operations/createversion/) and prints each resulting version link.
 
+For a trial upload, add `--game 26.3 --loader fabric`. The publisher still verifies the complete matrix and only sends the selected JAR.
+
 Run one publisher at a time for a project. If an upload stops halfway through, run the same command again. The publisher skips identical, listed uploads with matching game version, loader and channel. It reports any conflict before uploading further files. For a private or unpublished project, the token must also be able to see the project and its existing versions. HTTP 404 during the remote check can mean that access is missing or that the ID is incorrect.
 
 ## Release checklist

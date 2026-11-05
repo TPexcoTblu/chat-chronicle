@@ -1,6 +1,6 @@
 # Chat Chronicle
 
-Клиентский мод истории чата для Minecraft Java 26.x и 1.21.11: Fabric, NeoForge и Quilt. Сборка в разработке: **0.2.0**. Короткие автоматизированные проверки внутри клиента 26.3 прошли на трёх загрузчиках; остальные версии проверены сборкой. [Область и результаты проверок](tools/smoke/REPORT.md). Название проекта окончательное.
+Клиентский мод истории чата для Minecraft Java 26.x и 1.21.11 на Fabric, NeoForge и Quilt. Текущая бета — **0.2.1-beta.1**. Поиск по архиву теперь работает в отдельном потоке, поэтому запись сообщений может продолжаться во время поиска. [История изменений](CHANGELOG.md) · [Проверки](TESTING.md)
 
 ## Возможности
 
@@ -34,7 +34,7 @@
 
 1. Выбрать точную версию: **26.1, 26.1.1, 26.1.2, 26.2, 26.3 или 1.21.11**. Для 26.x нужна **Java 25**, для 1.21.11 — **Java 21**.
 2. Установить Fabric, NeoForge или Quilt согласно [матрице сборок](SUPPORT.md). Для части целей сам загрузчик имеет beta-версию. Fabric API, QSL и QFAPI с 0.2.0 не нужны.
-3. Поместить соответствующий `chat-chronicle-ЗАГРУЗЧИК-mcВЕРСИЯ-0.2.0.jar` из `build/releases/ВЕРСИЯ/ЗАГРУЗЧИК/` в `mods`. SQLite и RE2 вложены в JAR. Одновременно оставлять в `mods` только один вариант Chat Chronicle.
+3. Поместить соответствующий JAR из `build/releases/ВЕРСИЯ_ИГРЫ/ЗАГРУЗЧИК/` в `mods`. SQLite и RE2 вложены в JAR. Одновременно оставлять в `mods` только один вариант Chat Chronicle.
 4. Открыть чат: справа сверху кнопки истории/поиска и настроек. Также работает Ctrl+F в открытом чате.
 5. В истории выбрать день или ввести запрос. Даты задаются как `YYYY-MM-DD`. Пустые даты означают весь архив.
 6. Нажать на результат для просмотра контекста; кнопка «Результаты» возвращает поиск.
@@ -97,7 +97,7 @@ config/chat-chronicle.json
 
 Полный путь к проекту на этом компьютере: `C:\Users\deniska\Documents\Chat Chronicle`.
 
-Готовые JAR: `C:\Users\deniska\Documents\Chat Chronicle\build\releases\ВЕРСИЯ\ЗАГРУЗЧИК\`. Например: `C:\Users\deniska\Documents\Chat Chronicle\build\releases\26.3\neoforge\chat-chronicle-neoforge-mc26.3-0.2.0.jar`.
+Готовые JAR: `C:\Users\deniska\Documents\Chat Chronicle\build\releases\ВЕРСИЯ_ИГРЫ\ЗАГРУЗЧИК\`. Номер сборки в имени JAR соответствует `version` в `gradle.properties`.
 
 Файл настройки сборки: `C:\Users\deniska\Documents\Chat Chronicle\build.gradle`.
 
@@ -112,7 +112,7 @@ Set-Location 'C:\Users\deniska\Documents\Chat Chronicle'
 .\gradlew.bat :fabric-26.3:runClient '-Pgames=26.3' '-Ploaders=fabric'
 ```
 
-Либо выполнить `.\build-mod.bat`. Полная сборка создаёт 18 вариантов в `build\releases`. Для одной цели: `.\build-mod.bat '-Pgames=26.3' '-Ploaders=neoforge'`. Исходники всей матрицы: `build\distributions\chat-chronicle-0.2.0-source.zip`. Файл с суффиксом `-sources.jar` для установки в игру не нужен.
+Либо выполнить `.\build-mod.bat`. Полная сборка создаёт 18 вариантов в `build\releases`. Для одной цели: `.\build-mod.bat '-Pgames=26.3' '-Ploaders=neoforge'`. Исходники всей матрицы: `build\distributions\chat-chronicle-ВЕРСИЯ_МОДА-source.zip`. Файл с суффиксом `-sources.jar` для установки в игру не нужен.
 
 Матрица Minecraft и загрузчиков приведена в SUPPORT.md. Инструменты: Loom 1.19.3, ModDevGradle 2.0.148, Gradle 9.8.2, SQLite JDBC 3.51.3.0, RE2/J 1.8. Сборка требует JDK 25; вариант 1.21.11 компилируется с целевой Java 21.
 
